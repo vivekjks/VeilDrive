@@ -9,6 +9,7 @@ export const PREPROD = {
   proofServer: 'http://localhost:6300',
   explorer: 'https://preprod.midnightexplorer.com',
   faucet: 'https://midnight-tmnight-preprod.nethermind.dev/',
+  registry: '9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b',
 } as const;
 
 declare global {

@@ -12,6 +12,18 @@
 | Explorer | `https://preprod.midnightexplorer.com` |
 | Faucet | `https://midnight-tmnight-preprod.nethermind.dev/` |
 
+## Live deployment
+
+| Surface | Value |
+| --- | --- |
+| Web app | `https://veildrive.vercel.app` |
+| Compact registry | `9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b` |
+| Registry explorer | `https://preprod.midnightexplorer.com/address/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b` |
+| Deployment transaction | `0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd` |
+| Deployment block | `2516841` (`SucceedEntirely`) |
+
+The production app pre-fills this canonical registry for new encrypted vaults. Existing vaults remain bound to their saved registry.
+
 ## First deployment
 
 1. Compile the contract once with `pnpm contract:compile:wsl`.

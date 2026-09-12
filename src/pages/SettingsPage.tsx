@@ -34,7 +34,7 @@ export const SettingsPage = () => {
   const [health, setHealth] = useState(initialHealth);
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState<'connect' | 'deploy' | 'join' | null>(null);
-  const [contractInput, setContractInput] = useState(state.session.contractAddress ?? '');
+  const [contractInput, setContractInput] = useState(state.session.contractAddress ?? PREPROD.registry);
   const [message, setMessage] = useState('');
   const [clearOpen, setClearOpen] = useState(false);
   const runtimeSession = getMidnightContractSession();
