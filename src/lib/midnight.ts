@@ -79,6 +79,11 @@ export const connectMidnightWallet = async (): Promise<WalletConnection> => {
 export const getConnectedWallet = (): ConnectedAPI | null => connectedWallet;
 export const getWalletConnection = (): WalletConnection | null => walletConnection;
 
+export const disconnectMidnightWallet = (): void => {
+  connectedWallet = null;
+  walletConnection = null;
+};
+
 const healthFetch = async (url: string): Promise<boolean> => {
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(4_000) });

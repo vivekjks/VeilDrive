@@ -25,6 +25,7 @@ import { decryptVersion, encryptBlob, encryptUpload, sha256 } from '../lib/crypt
 import { deleteEncryptedBlob } from '../lib/indexed-db';
 import { randomId } from '../lib/encoding';
 import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from '../lib/state-vault';
+import { disconnectMidnightWallet } from '../lib/midnight';
 
 const loadMidnightContract = () => import('../lib/midnight-contract');
 
@@ -64,7 +65,7 @@ const auditEvent = (
 
 interface AppActions {
   connect: (session: Partial<Session>) => void;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   upload: (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => Promise<UploadResult[]>;
   createFolder: (name: string, parentId: string | null, privacy?: PrivacyLevel) => Promise<DriveItem>;
   addVersion: (fileId: string, file: File) => Promise<EncryptedVersion>;
@@ -132,6 +133,13 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   }, [ready, state]);
 
   const connect = useCallback((session: Partial<Session>) => {
+    if (state.session.walletAddress && session.walletAddress && state.session.walletAddress !== session.walletAddress) {
+      disconnectMidnightWallet();
+      throw new Error('This local vault belongs to another wallet. Reconnect its original wallet or use a separate browser profile for the new account.');
+    }
+    if (state.items.length && state.session.contractAddress && session.contractAddress && state.session.contractAddress !== session.contractAddress) {
+      throw new Error('This vault contains files registered to another contract. Use a separate browser profile for a different registry.');
+    }
     dispatch((current) => {
       const nextSession = { ...current.session, connected: true, ...session, network: 'preprod' as const };
       if (!session.veilId) return { ...current, session: nextSession };
@@ -147,9 +155,12 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
           : [owner, ...current.members],
       };
     });
-  }, []);
+  }, [state.items.length, state.session.contractAddress, state.session.walletAddress]);
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    disconnectMidnightWallet();
+    const { clearMidnightContractSession } = await loadMidnightContract();
+    clearMidnightContractSession();
     dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
   }, []);
 

@@ -46,6 +46,13 @@ let activeProviders: VeilProviders | null = null;
 let activeAddress: string | null = null;
 let identityCommitment: string | null = null;
 
+export const clearMidnightContractSession = (): void => {
+  activeContract = null;
+  activeProviders = null;
+  activeAddress = null;
+  identityCommitment = null;
+};
+
 const deriveWalletSecrets = async (connection: WalletConnection) => {
   await connection.api.hintUsage([
     'signData',
@@ -55,7 +62,7 @@ const deriveWalletSecrets = async (connection: WalletConnection) => {
     'submitTransaction',
   ]).catch(() => undefined);
   const signed = await connection.api.signData(
-    `VeilDrive private state unlock v1\nNetwork: ${PREPROD.networkId}`,
+    `VeilDrive private state unlock v2\nOrigin: ${window.location.origin}\nNetwork: ${PREPROD.networkId}\nAccount: ${connection.walletAddress}\nSign only in your trusted VeilDrive application.`,
     { encoding: 'text', keyType: 'unshielded' },
   );
   const digest = await sha256(`${signed.verifyingKey}:${signed.signature}`);

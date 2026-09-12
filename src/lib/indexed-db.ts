@@ -4,20 +4,22 @@ const BLOBS = 'encrypted-blobs';
 const KEYS = 'crypto-keys';
 
 let databasePromise: Promise<IDBDatabase> | null = null;
-const memoryBlobs = new Map<string, ArrayBuffer>();
-const memoryKeys = new Map<string, CryptoKey>();
 
 const openDatabase = (): Promise<IDBDatabase> => {
+  if (typeof indexedDB === 'undefined') return Promise.reject(new Error('Persistent browser storage is required for the encrypted vault.'));
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onerror = () => reject(request.error ?? new Error('Unable to open encrypted vault.'));
+    request.onerror = () => { databasePromise = null; reject(request.error ?? new Error('Unable to open encrypted vault.')); };
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(BLOBS)) db.createObjectStore(BLOBS);
       if (!db.objectStoreNames.contains(KEYS)) db.createObjectStore(KEYS);
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      request.result.onversionchange = () => { request.result.close(); databasePromise = null; };
+      resolve(request.result);
+    };
   });
   return databasePromise;
 };
@@ -25,20 +27,16 @@ const openDatabase = (): Promise<IDBDatabase> => {
 const hasIndexedDb = () => typeof indexedDB !== 'undefined';
 
 export const putEncryptedBlob = async (key: string, value: ArrayBuffer): Promise<void> => {
-  if (!hasIndexedDb()) {
-    memoryBlobs.set(key, value);
-    return;
-  }
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
-    const request = db.transaction(BLOBS, 'readwrite').objectStore(BLOBS).put(value, key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error('Unable to store encrypted blob.'));
+    const transaction = db.transaction(BLOBS, 'readwrite');
+    transaction.objectStore(BLOBS).put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Unable to store encrypted blob.'));
   });
 };
 
 export const getEncryptedBlob = async (key: string): Promise<ArrayBuffer | undefined> => {
-  if (!hasIndexedDb()) return memoryBlobs.get(key);
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const request = db.transaction(BLOBS).objectStore(BLOBS).get(key);
@@ -48,20 +46,16 @@ export const getEncryptedBlob = async (key: string): Promise<ArrayBuffer | undef
 };
 
 export const deleteEncryptedBlob = async (key: string): Promise<void> => {
-  if (!hasIndexedDb()) {
-    memoryBlobs.delete(key);
-    return;
-  }
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
-    const request = db.transaction(BLOBS, 'readwrite').objectStore(BLOBS).delete(key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error('Unable to delete encrypted blob.'));
+    const transaction = db.transaction(BLOBS, 'readwrite');
+    transaction.objectStore(BLOBS).delete(key);
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Unable to delete encrypted blob.'));
   });
 };
 
 export const getVaultKey = async (key: string): Promise<CryptoKey | undefined> => {
-  if (!hasIndexedDb()) return memoryKeys.get(key);
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const request = db.transaction(KEYS).objectStore(KEYS).get(key);
@@ -71,15 +65,12 @@ export const getVaultKey = async (key: string): Promise<CryptoKey | undefined> =
 };
 
 export const putVaultKey = async (key: string, value: CryptoKey): Promise<void> => {
-  if (!hasIndexedDb()) {
-    memoryKeys.set(key, value);
-    return;
-  }
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
-    const request = db.transaction(KEYS, 'readwrite').objectStore(KEYS).put(value, key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error('Unable to persist vault key.'));
+    const transaction = db.transaction(KEYS, 'readwrite');
+    transaction.objectStore(KEYS).put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = transaction.onerror = () => reject(transaction.error ?? new Error('Unable to persist vault key.'));
   });
 };
 
