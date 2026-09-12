@@ -1,0 +1,12 @@
+{
+  "name": "VeilDrive",
+  "short_name": "VeilDrive",
+  "description": "Privacy-first encrypted drive powered by Midnight.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d0c",
+  "theme_color": "#090d0c",
+  "icons": [
+    { "src": "/veil-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+import pathlib
+import sys
+import zipfile
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args:
+        print('usage: unzip ARCHIVE [-d DESTINATION]', file=sys.stderr)
+        return 2
+    archive = pathlib.Path(args[0])
+    destination = pathlib.Path('.')
+    if '-d' in args:
+        index = args.index('-d')
+        if index + 1 >= len(args):
+            print('unzip: missing destination after -d', file=sys.stderr)
+            return 2
+        destination = pathlib.Path(args[index + 1])
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as source:
+        source.extractall(destination)
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,21 @@
+{
+  "name": "@veildrive/contract",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "compact": "compact compile src/veil-drive.compact src/managed/veil-drive",
+    "build": "tsc -p tsconfig.build.json && node ../scripts/sync-contract-bindings.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

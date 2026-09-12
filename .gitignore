@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.midnight-state.json
+contract/dist/
+public/keys/
+public/zkir/
+public/compiler/
+*.log
+.DS_Store
+Thumbs.db

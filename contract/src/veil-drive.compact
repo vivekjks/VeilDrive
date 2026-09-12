@@ -1,0 +1,362 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// VeilDrive stores only commitments and policy controls on the public ledger.
+// File bytes, readable metadata, identity claims, and secrets remain off-chain.
+
+struct FileEntry {
+  commitment: Bytes<32>,
+  metadataCommitment: Bytes<32>,
+  owner: Bytes<32>,
+  version: Uint<32>,
+  revoked: Boolean
+}
+
+struct AccessGrant {
+  fileId: Bytes<32>,
+  recipient: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean,
+  consumed: Boolean,
+  revoked: Boolean
+}
+
+struct CredentialRecord {
+  holder: Bytes<32>,
+  claimsCommitment: Bytes<32>,
+  expiresAt: Uint<64>,
+  revoked: Boolean
+}
+
+struct AccessPolicy {
+  fileId: Bytes<32>,
+  requiredClaims: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean,
+  consumed: Boolean,
+  active: Boolean
+}
+
+struct AuditEntry {
+  fileId: Bytes<32>,
+  eventCommitment: Bytes<32>,
+  authorized: Boolean
+}
+
+export sealed ledger administrator: Bytes<32>;
+export ledger issuers: Set<Bytes<32>>;
+export ledger files: Map<Bytes<32>, FileEntry>;
+export ledger grants: Map<Bytes<32>, AccessGrant>;
+export ledger credentials: Map<Bytes<32>, CredentialRecord>;
+export ledger policies: Map<Bytes<32>, AccessPolicy>;
+export ledger auditEvents: Map<Uint<64>, AuditEntry>;
+export ledger fileCount: Counter;
+export ledger grantCount: Counter;
+export ledger credentialCount: Counter;
+export ledger policyCount: Counter;
+export ledger auditCount: Counter;
+
+witness localSecretKey(): Bytes<32>;
+witness localCredentialClaims(): Bytes<32>;
+
+constructor() {
+  const admin = identityCommitment(localSecretKey());
+  administrator = disclose(admin);
+  issuers.insert(disclose(admin));
+}
+
+export circuit identityCommitment(secretKey: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "veildrive:identity:"), secretKey]);
+}
+
+export circuit claimsCommitment(claims: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "veildrive:claims:"), claims]);
+}
+
+export circuit accessGrantId(fileId: Bytes<32>, recipient: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "veildrive:grant:"), fileId, recipient]);
+}
+
+circuit assertAdministrator(): [] {
+  assert(administrator == identityCommitment(localSecretKey()), "administrator authorization required");
+}
+
+circuit assertFileOwner(fileId: Bytes<32>): FileEntry {
+  assert(files.member(fileId), "file not registered");
+  const entry = files.lookup(fileId);
+  assert(!entry.revoked, "file registration revoked");
+  assert(entry.owner == identityCommitment(localSecretKey()), "file owner authorization required");
+  return entry;
+}
+
+export circuit registerFile(
+  fileId: Bytes<32>,
+  commitment: Bytes<32>,
+  metadataCommitment: Bytes<32>
+): [] {
+  const publicFileId = disclose(fileId);
+  assert(!files.member(publicFileId), "file already registered");
+  const owner = identityCommitment(localSecretKey());
+  files.insert(publicFileId, FileEntry {
+    commitment: disclose(commitment),
+    metadataCommitment: disclose(metadataCommitment),
+    owner: disclose(owner),
+    version: 1,
+    revoked: false
+  });
+  fileCount.increment(1);
+}
+
+export circuit updateFile(
+  fileId: Bytes<32>,
+  commitment: Bytes<32>,
+  metadataCommitment: Bytes<32>
+): [] {
+  const publicFileId = disclose(fileId);
+  const current = assertFileOwner(publicFileId);
+  files.insert(publicFileId, FileEntry {
+    commitment: disclose(commitment),
+    metadataCommitment: disclose(metadataCommitment),
+    owner: current.owner,
+    version: (current.version + 1) as Uint<32>,
+    revoked: false
+  });
+}
+
+export circuit revokeFile(fileId: Bytes<32>): [] {
+  const publicFileId = disclose(fileId);
+  const current = assertFileOwner(publicFileId);
+  files.insert(publicFileId, FileEntry {
+    commitment: current.commitment,
+    metadataCommitment: current.metadataCommitment,
+    owner: current.owner,
+    version: current.version,
+    revoked: true
+  });
+}
+
+export circuit verifyCommitment(fileId: Bytes<32>, expectedCommitment: Bytes<32>): [] {
+  const publicFileId = disclose(fileId);
+  assert(files.member(publicFileId), "file not registered");
+  const entry = files.lookup(publicFileId);
+  assert(!entry.revoked, "file registration revoked");
+  assert(entry.commitment == disclose(expectedCommitment), "file commitment mismatch");
+}
+
+export circuit grantAccess(
+  fileId: Bytes<32>,
+  recipient: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean
+): Bytes<32> {
+  const publicFileId = disclose(fileId);
+  assertFileOwner(publicFileId);
+  const publicRecipient = disclose(recipient);
+  const grantId = disclose(accessGrantId(publicFileId, publicRecipient));
+  grants.insert(grantId, AccessGrant {
+    fileId: publicFileId,
+    recipient: publicRecipient,
+    permissions: disclose(permissions),
+    expiresAt: disclose(expiresAt),
+    oneTime: disclose(oneTime),
+    consumed: false,
+    revoked: false
+  });
+  grantCount.increment(1);
+  return grantId;
+}
+
+export circuit revokeAccess(fileId: Bytes<32>, recipient: Bytes<32>): [] {
+  const publicFileId = disclose(fileId);
+  assertFileOwner(publicFileId);
+  const grantId = accessGrantId(publicFileId, disclose(recipient));
+  assert(grants.member(grantId), "access grant not found");
+  const grant = grants.lookup(grantId);
+  grants.insert(grantId, AccessGrant {
+    fileId: grant.fileId,
+    recipient: grant.recipient,
+    permissions: grant.permissions,
+    expiresAt: grant.expiresAt,
+    oneTime: grant.oneTime,
+    consumed: grant.consumed,
+    revoked: true
+  });
+}
+
+export circuit proveWalletAccess(fileId: Bytes<32>): Uint<8> {
+  const publicFileId = disclose(fileId);
+  const recipient = disclose(identityCommitment(localSecretKey()));
+  const grantId = accessGrantId(publicFileId, recipient);
+  assert(grants.member(grantId), "access grant not found");
+  const grant = grants.lookup(grantId);
+  assert(!grant.revoked, "access revoked");
+  if (grant.expiresAt != 0) {
+    assert(blockTimeLt(grant.expiresAt), "access expired");
+  }
+  assert(!grant.oneTime || !grant.consumed, "one-time access consumed");
+  return grant.permissions;
+}
+
+export circuit consumeWalletAccess(fileId: Bytes<32>): Uint<8> {
+  const publicFileId = disclose(fileId);
+  const recipient = disclose(identityCommitment(localSecretKey()));
+  const grantId = accessGrantId(publicFileId, recipient);
+  const permissions = proveWalletAccess(publicFileId);
+  const grant = grants.lookup(grantId);
+  if (grant.oneTime) {
+    grants.insert(grantId, AccessGrant {
+      fileId: grant.fileId,
+      recipient: grant.recipient,
+      permissions: grant.permissions,
+      expiresAt: grant.expiresAt,
+      oneTime: true,
+      consumed: true,
+      revoked: false
+    });
+  }
+  return permissions;
+}
+
+export circuit registerIssuer(issuerCommitment: Bytes<32>): [] {
+  assertAdministrator();
+  issuers.insert(disclose(issuerCommitment));
+}
+
+export circuit issueCredential(
+  credentialId: Bytes<32>,
+  holder: Bytes<32>,
+  requiredClaimsCommitment: Bytes<32>,
+  expiresAt: Uint<64>
+): [] {
+  const issuer = disclose(identityCommitment(localSecretKey()));
+  assert(issuers.member(issuer), "registered credential issuer required");
+  const publicCredentialId = disclose(credentialId);
+  assert(!credentials.member(publicCredentialId), "credential already issued");
+  credentials.insert(publicCredentialId, CredentialRecord {
+    holder: disclose(holder),
+    claimsCommitment: disclose(requiredClaimsCommitment),
+    expiresAt: disclose(expiresAt),
+    revoked: false
+  });
+  credentialCount.increment(1);
+}
+
+export circuit revokeCredential(credentialId: Bytes<32>): [] {
+  const issuer = disclose(identityCommitment(localSecretKey()));
+  assert(issuers.member(issuer), "registered credential issuer required");
+  const publicCredentialId = disclose(credentialId);
+  assert(credentials.member(publicCredentialId), "credential not found");
+  const credential = credentials.lookup(publicCredentialId);
+  credentials.insert(publicCredentialId, CredentialRecord {
+    holder: credential.holder,
+    claimsCommitment: credential.claimsCommitment,
+    expiresAt: credential.expiresAt,
+    revoked: true
+  });
+}
+
+export circuit createAccessPolicy(
+  policyId: Bytes<32>,
+  fileId: Bytes<32>,
+  requiredClaims: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean
+): [] {
+  const publicFileId = disclose(fileId);
+  assertFileOwner(publicFileId);
+  const publicPolicyId = disclose(policyId);
+  policies.insert(publicPolicyId, AccessPolicy {
+    fileId: publicFileId,
+    requiredClaims: disclose(requiredClaims),
+    permissions: disclose(permissions),
+    expiresAt: disclose(expiresAt),
+    oneTime: disclose(oneTime),
+    consumed: false,
+    active: true
+  });
+  policyCount.increment(1);
+}
+
+export circuit revokeAccessPolicy(policyId: Bytes<32>): [] {
+  const publicPolicyId = disclose(policyId);
+  assert(policies.member(publicPolicyId), "policy not found");
+  const policy = policies.lookup(publicPolicyId);
+  assertFileOwner(policy.fileId);
+  policies.insert(publicPolicyId, AccessPolicy {
+    fileId: policy.fileId,
+    requiredClaims: policy.requiredClaims,
+    permissions: policy.permissions,
+    expiresAt: policy.expiresAt,
+    oneTime: policy.oneTime,
+    consumed: policy.consumed,
+    active: false
+  });
+}
+
+export circuit provePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
+  const publicPolicyId = disclose(policyId);
+  const publicCredentialId = disclose(credentialId);
+  assert(policies.member(publicPolicyId), "policy not found");
+  assert(credentials.member(publicCredentialId), "credential not found");
+  const policy = policies.lookup(publicPolicyId);
+  const credential = credentials.lookup(publicCredentialId);
+  assert(policy.active, "policy revoked");
+  assert(!policy.oneTime || !policy.consumed, "one-time policy consumed");
+  if (policy.expiresAt != 0) {
+    assert(blockTimeLt(policy.expiresAt), "policy expired");
+  }
+  assert(!credential.revoked, "credential revoked");
+  if (credential.expiresAt != 0) {
+    assert(blockTimeLt(credential.expiresAt), "credential expired");
+  }
+  assert(credential.holder == identityCommitment(localSecretKey()), "credential holder proof failed");
+  assert(credential.claimsCommitment == policy.requiredClaims, "credential does not satisfy policy");
+  assert(claimsCommitment(localCredentialClaims()) == credential.claimsCommitment, "private claims proof failed");
+  return policy.permissions;
+}
+
+export circuit consumePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
+  const publicPolicyId = disclose(policyId);
+  const permissions = provePolicyAccess(publicPolicyId, disclose(credentialId));
+  const policy = policies.lookup(publicPolicyId);
+  if (policy.oneTime) {
+    policies.insert(publicPolicyId, AccessPolicy {
+      fileId: policy.fileId,
+      requiredClaims: policy.requiredClaims,
+      permissions: policy.permissions,
+      expiresAt: policy.expiresAt,
+      oneTime: true,
+      consumed: true,
+      active: true
+    });
+  }
+  return permissions;
+}
+
+export circuit recordAuditEvent(
+  fileId: Bytes<32>,
+  eventCommitment: Bytes<32>,
+  authorized: Boolean
+): Uint<64> {
+  auditCount.increment(1);
+  const eventId = disclose(auditCount.read() as Uint<64>);
+  auditEvents.insert(eventId, AuditEntry {
+    fileId: disclose(fileId),
+    eventCommitment: disclose(eventCommitment),
+    authorized: disclose(authorized)
+  });
+  return eventId;
+}
+
+export circuit verifyAuditEvent(eventId: Uint<64>, expectedCommitment: Bytes<32>): [] {
+  const publicEventId = disclose(eventId);
+  assert(auditEvents.member(publicEventId), "audit event not found");
+  const entry = auditEvents.lookup(publicEventId);
+  assert(entry.authorized, "audit event was not authorized");
+  assert(entry.eventCommitment == disclose(expectedCommitment), "audit commitment mismatch");
+}

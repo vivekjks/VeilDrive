@@ -1,0 +1,64 @@
+.app-shell { min-height: 100dvh; display: grid; grid-template: 72px 1fr / 228px minmax(0, 1fr); background: radial-gradient(circle at 75% -30%, rgba(86,111,78,.13), transparent 42%), var(--bg); }
+.sidebar { grid-row: 1 / -1; position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; padding: 22px 14px 16px; box-shadow: inset -1px 0 0 var(--hairline); background: rgba(7, 11, 9, .82); z-index: 4; }
+.sidebar__head { height: 44px; padding: 0 8px 0 4px; display: flex; align-items: center; justify-content: space-between; }
+.sidebar__collapse { width: 34px; height: 34px; }
+.sidebar__nav { display: grid; gap: 3px; margin-top: 32px; }
+.sidebar__link { min-height: 46px; padding: 0 14px; display: flex; align-items: center; gap: 14px; border-radius: 11px; color: var(--muted); font-size: 13px; transition: transform 600ms var(--ease-mass), color 600ms var(--ease-mass), background-color 600ms var(--ease-mass); }
+.sidebar__link:hover { color: var(--ivory); transform: translateX(3px); }
+.sidebar__link.is-active { color: var(--ivory); background: rgba(216, 255, 115, .085); box-shadow: inset 2px 0 0 var(--lime); }
+.sidebar__link.is-active svg { color: var(--lime); }
+.sidebar__nav--secondary { margin-top: auto; padding-top: 18px; box-shadow: inset 0 1px 0 var(--hairline); }
+.account-card { position: relative; width: 100%; margin-top: 16px; padding: 8px 10px; border: 0; border-radius: 13px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--ivory); display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; }
+.account-card__avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #dfe7d9; color: #1b231e; font-size: 11px; font-weight: 760; }
+.account-card__copy { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.account-card__copy strong { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.account-card__copy small { color: var(--muted); font-size: 9px; }
+.account-menu { position: absolute; z-index: 5; left: 14px; bottom: 80px; width: 200px; padding: 10px; border-radius: 14px; background: #151d19; box-shadow: inset 0 0 0 1px var(--hairline-bright), 0 24px 70px rgba(0,0,0,.24); }
+.account-menu p { display: flex; align-items: center; gap: 8px; padding: 7px 9px; margin: 0; color: var(--muted); font-size: 11px; }
+.account-menu button { width: 100%; border: 0; border-radius: 9px; padding: 9px; color: var(--danger); text-align: left; background: transparent; cursor: pointer; }
+
+.topbar { grid-column: 2; height: 72px; padding: 14px 26px; display: flex; align-items: center; justify-content: space-between; gap: 24px; box-shadow: inset 0 -1px 0 var(--hairline); position: sticky; top: 0; z-index: 3; background: rgba(9,13,12,.72); backdrop-filter: blur(22px); }
+.global-search { width: min(600px, 58vw); height: 44px; padding: 0 10px 0 14px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.035); border-radius: 12px; box-shadow: inset 0 0 0 1px var(--hairline); color: var(--muted); }
+.global-search input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--ivory); background: transparent; font-size: 13px; }
+.global-search kbd { padding: 4px 7px; border-radius: 6px; background: rgba(255,255,255,.055); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--dim); font-size: 10px; }
+.topbar__actions { display: flex; align-items: center; gap: 14px; }
+.network-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 13px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--hairline); color: var(--muted); font-size: 11px; }
+.notice-button { position: relative; }
+.notice-button > span { position: absolute; top: 1px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--lime); color: #11150f; font-size: 9px; display: grid; place-items: center; font-weight: 800; }
+.app-main { grid-column: 2; min-width: 0; animation: page-in 750ms var(--ease-mass); }
+@keyframes page-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.notice-drawer { position: fixed; z-index: 11; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; padding: 28px; background: rgba(11,17,14,.93); backdrop-filter: blur(28px); box-shadow: inset 1px 0 0 var(--hairline); transform: translateX(102%); opacity: .5; transition: transform 760ms var(--ease-mass), opacity 760ms var(--ease-mass); }
+.notice-drawer.is-open { transform: none; opacity: 1; }
+.notice-drawer > header { display: flex; align-items: flex-start; justify-content: space-between; }
+.notice-drawer h2 { margin: 12px 0 0; font-size: 30px; letter-spacing: -.055em; }
+.notice-drawer__list { display: grid; margin-top: 28px; box-shadow: inset 0 1px 0 var(--hairline); }
+.notice-drawer article { padding: 18px 4px; display: flex; gap: 14px; box-shadow: inset 0 -1px 0 var(--hairline); opacity: .62; }
+.notice-drawer article.is-unread { opacity: 1; }
+.notice-type { flex: 0 0 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(216,255,115,.09); color: var(--lime); }
+.notice-drawer article strong { font-size: 13px; }
+.notice-drawer article p { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 6px 0; }
+.notice-drawer article small { color: var(--dim); font-size: 10px; }
+.text-action { border: 0; background: transparent; color: var(--lime); padding: 18px 0; cursor: pointer; font-size: 12px; }
+.drawer-scrim { position: fixed; inset: 0; z-index: 10; border: 0; background: rgba(0,0,0,.48); }
+.mobile-nav { display: none; }
+
+.app-shell--collapsed { grid-template-columns: 78px minmax(0, 1fr); }
+.app-shell--collapsed .sidebar { padding-inline: 12px; }
+.app-shell--collapsed .sidebar__head { justify-content: center; }
+.app-shell--collapsed .sidebar__collapse { display: none; }
+.app-shell--collapsed .sidebar__link { justify-content: center; padding: 0; }
+.app-shell--collapsed .sidebar__link span, .app-shell--collapsed .account-card__copy, .app-shell--collapsed .account-card > svg { display: none; }
+.app-shell--collapsed .account-card { justify-content: center; padding: 6px; }
+
+@media (max-width: 900px) {
+  .app-shell, .app-shell--collapsed { display: block; padding-bottom: 72px; }
+  .sidebar { display: none; }
+  .topbar { height: 64px; padding: 10px 16px; }
+  .global-search { width: min(540px, calc(100vw - 120px)); }
+  .global-search kbd, .network-pill { display: none; }
+  .app-main { min-height: calc(100dvh - 136px); }
+  .mobile-nav { position: fixed; z-index: 4; bottom: 10px; left: 10px; right: 10px; height: 62px; padding: 6px; border-radius: 20px; display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(15,22,18,.9); backdrop-filter: blur(24px); box-shadow: inset 0 0 0 1px var(--hairline-bright), 0 18px 50px rgba(0,0,0,.18); }
+  .mobile-nav a { display: grid; place-items: center; align-content: center; gap: 2px; color: var(--muted); font-size: 8px; }
+  .mobile-nav a.is-active { color: var(--lime); }
+}
