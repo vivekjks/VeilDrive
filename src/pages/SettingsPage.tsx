@@ -3,10 +3,8 @@ import {
   Check,
   Database,
   HardDrives,
-  Link,
   LockKey,
   Network,
-  Plug,
   ShieldCheck,
   Wallet,
 } from '@phosphor-icons/react';
@@ -66,9 +64,9 @@ export const SettingsPage = () => {
     try {
       const wallet = await connectMidnightWallet();
       actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress });
-      setMessage('Lace is authorized on Midnight preprod. Deploy or join the registry to enable on-chain actions.');
+      setMessage(`${wallet.walletName} is connected to Midnight preprod.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not connect to Lace.');
+      setMessage(error instanceof Error ? error.message : 'Could not connect to a Midnight wallet.');
     } finally {
       setBusy(null);
     }
@@ -141,7 +139,7 @@ export const SettingsPage = () => {
               </span>
             </span>
             <Button tone="primary" onClick={reconnect} disabled={busy !== null}>
-              <Wallet size={16} /> {busy === 'connect' ? 'Waiting for Lace…' : state.session.mode === 'preprod' ? 'Reconnect Lace' : 'Connect Lace'}
+              <Wallet size={16} /> {busy === 'connect' ? 'Waiting for wallet…' : state.session.connected ? 'Reconnect wallet' : 'Connect wallet'}
             </Button>
           </div>
           <div className="deployment-panel">
@@ -185,19 +183,9 @@ export const SettingsPage = () => {
             <div><h2>Encrypted storage provider</h2><p>Ciphertext uses the same interface across local and remote providers.</p></div>
           </header>
           <div className="provider-options">
-            {([
-              ['indexeddb', HardDrives, 'Local encrypted vault', 'Fully working on this device'],
-              ['ipfs', Plug, 'IPFS compatible', 'Gateway adapter configuration'],
-              ['s3', Link, 'S3 compatible', 'Object storage adapter'],
-            ] as const).map(([value, Icon, label, copy]) => (
-              <button key={value} className={state.storageProvider === value ? 'is-active' : ''} onClick={() => actions.setStorageProvider(value)} disabled={value !== 'indexeddb'} title={value === 'indexeddb' ? undefined : 'Requires a separately configured encrypted object-storage adapter'}>
-                <Icon size={22} weight="light" />
-                <span><strong>{label}</strong><small>{copy}</small></span>
-                {state.storageProvider === value ? <Check size={16} weight="bold" /> : value !== 'indexeddb' ? <small>Configure</small> : null}
-              </button>
-            ))}
+            <button className="is-active" disabled><HardDrives size={22} weight="light" /><span><strong>Local encrypted vault</strong><small>IndexedDB on this device</small></span><Check size={16} weight="bold" /></button>
           </div>
-          <p className="security-note"><LockKey size={14} /> Remote providers only receive encrypted blobs and opaque storage IDs. Provider credentials belong in a server-side deployment environment.</p>
+          <p className="security-note"><LockKey size={14} /> Plaintext never leaves this browser.</p>
         </section>
 
         <section>
@@ -207,7 +195,7 @@ export const SettingsPage = () => {
           </header>
           <ul className="boundary-list">
             <li><Check size={15} /> Files and metadata are encrypted before storage.</li>
-            <li><Check size={15} /> On-chain permissions prevent new authorized key retrievals after revocation.</li>
+            <li><Check size={15} /> On-chain proofs reject expired, consumed, or revoked grants.</li>
             <li><Check size={15} /> One-time access governs one VeilDrive retrieval session.</li>
             <li><span>×</span> Plaintext already seen by a recipient cannot be recalled or protected as DRM.</li>
             <li><span>×</span> Revocation cannot make a former recipient forget a key; robust offboarding rotates group keys.</li>

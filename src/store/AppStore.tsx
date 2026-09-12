@@ -33,6 +33,12 @@ const commitRecord = async (recordType: string, recordId: string, payload: unkno
   return commitPrivateRecordOnMidnight(recordId, recordType, JSON.stringify(payload));
 };
 
+const credentialClaimsPayload = (claims: { organization: string; department: string; role: string }) => JSON.stringify({
+  organization: claims.organization.trim(),
+  department: claims.department.trim(),
+  role: claims.role.trim(),
+});
+
 type Update = (state: AppState) => AppState;
 
 const auditEvent = (
@@ -299,18 +305,20 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     let transactionId: string;
     {
       const { createPolicyOnMidnight, grantWalletAccessOnMidnight } = await loadMidnightContract();
-      if (draft.method === 'policy' || draft.method === 'team') {
-        const policyConditions = draft.method === 'team'
-          ? [{ id: `team-${id}`, field: 'organization' as const, operator: 'is' as const, value: draft.recipient }]
-          : draft.conditions;
+      if (draft.method === 'policy') {
+        const valueFor = (field: 'organization' | 'department' | 'role') => draft.conditions.find((condition) => condition.field === field && condition.operator === 'is')?.value.trim() ?? '';
+        const policyClaims = { organization: valueFor('organization'), department: valueFor('department'), role: valueFor('role') };
+        if (!policyClaims.organization || !policyClaims.department || !policyClaims.role) throw new Error('Policy access requires exact organization, department, and role claims.');
         transactionId = await createPolicyOnMidnight(
           id,
           fileId,
-          JSON.stringify(policyConditions),
+          credentialClaimsPayload(policyClaims),
           draft.permissions,
           draft.expiresAt,
           draft.oneTime,
         );
+      } else if (draft.method === 'team') {
+        throw new Error('Use an exact private credential rule for team access.');
       } else if (draft.method === 'wallet') {
         transactionId = await grantWalletAccessOnMidnight(
           fileId,
@@ -486,16 +494,17 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
 
   const issueCredential = useCallback(async (input: Omit<Credential, 'id' | 'commitment'>) => {
     const id = randomId('credential');
-    const claims = JSON.stringify({ organization: input.organization, department: input.department, role: input.role });
+    const claims = credentialClaimsPayload(input);
     let commitment = await sha256(claims);
     if (state.session.mode === 'preprod') {
-      const { issueCredentialOnMidnight } = await loadMidnightContract();
+      const { issueCredentialOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
       const member = state.members.find((candidate) => candidate.id === input.subjectId);
       const holderIdentity = input.subjectId === 'owner' ? state.session.veilId : member?.veilId;
       if (!holderIdentity || !/^[0-9a-f]{64}$/i.test(holderIdentity)) {
         throw new Error('This member needs a 64-character Veil ID before a credential can be issued on preprod.');
       }
-      commitment = await issueCredentialOnMidnight(id, holderIdentity, claims, input.expiresAt);
+      await issueCredentialOnMidnight(id, holderIdentity, claims, input.expiresAt);
+      if (input.subjectId === 'owner') await setLocalCredentialClaimsOnMidnight(claims);
     }
     const credential: Credential = { ...input, id, commitment };
     dispatch((current) => ({ ...current, credentials: [...current.credentials, credential] }));

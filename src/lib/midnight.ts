@@ -30,23 +30,33 @@ export interface WalletConnection {
   indexerWsUri: string;
 }
 
-export const discoverMidnightWallets = (): InitialAPI[] =>
-  Object.values(window.midnight ?? {}).filter(
+export const discoverMidnightWallets = (): InitialAPI[] => {
+  const registry = window.midnight ?? {};
+  const preferred = [registry.mnLace, registry['1am'], ...Object.values(registry)];
+  return Array.from(new Set(preferred)).filter(
     (wallet): wallet is InitialAPI =>
       Boolean(wallet) &&
       typeof wallet === 'object' &&
       'apiVersion' in wallet &&
       String(wallet.apiVersion).startsWith('4.'),
   );
+};
 
 export const connectMidnightWallet = async (): Promise<WalletConnection> => {
   const wallet = discoverMidnightWallets()[0];
-  if (!wallet) throw new Error('No compatible Midnight Lace wallet was found. Install Lace 1.36+ and enable Midnight preprod.');
-  const api = await wallet.connect(PREPROD.networkId);
+  if (!wallet) throw new Error('No compatible Midnight wallet was found. Unlock Lace or 1AM, enable preprod, then reload this page.');
+  const walletName = wallet.name ?? 'Midnight wallet';
+  let api: ConnectedAPI;
+  try {
+    api = await wallet.connect(PREPROD.networkId);
+  } catch (reason) {
+    const detail = reason instanceof Error && reason.message !== 'Request failed' ? ` ${reason.message}` : '';
+    throw new Error(`${walletName} did not complete the connection. Unlock the wallet, select Midnight preprod, and try again.${detail}`);
+  }
   const status = await api.getConnectionStatus();
-  if (status.status !== 'connected') throw new Error('Lace did not authorize this application.');
+  if (status.status !== 'connected') throw new Error(`${walletName} did not authorize this application.`);
   if (status.networkId.toLowerCase() !== PREPROD.networkId) {
-    throw new Error(`Lace is connected to ${status.networkId}. Switch the wallet to Midnight Preprod.`);
+    throw new Error(`${walletName} is connected to ${status.networkId}. Switch it to Midnight preprod.`);
   }
   setNetworkId(PREPROD.networkId);
   const [configuration, addresses] = await Promise.all([
@@ -56,7 +66,7 @@ export const connectMidnightWallet = async (): Promise<WalletConnection> => {
   connectedWallet = api;
   walletConnection = {
     api,
-    walletName: wallet.name ?? 'Lace',
+    walletName,
     walletAddress: addresses.shieldedCoinPublicKey,
     networkId: status.networkId,
     proofServerUri: configuration.proverServerUri ?? PREPROD.proofServer,
@@ -96,7 +106,7 @@ export const checkPreprodHealth = async () => {
   const indexerReady = new URL('/ready', PREPROD.indexer).toString();
   const [indexer, proofServer, node] = await Promise.all([
     healthFetch(indexerReady),
-    healthFetch(`${PREPROD.proofServer}/health`),
+    healthFetch(`${PREPROD.proofServer}/version`),
     rpcHealth(),
   ]);
   return { indexer, proofServer, node, network: indexer && node };

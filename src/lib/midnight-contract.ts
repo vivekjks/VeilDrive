@@ -42,6 +42,7 @@ export interface MidnightContractSession {
 }
 
 let activeContract: ActiveContract | null = null;
+let activeProviders: VeilProviders | null = null;
 let activeAddress: string | null = null;
 let identityCommitment: string | null = null;
 
@@ -123,9 +124,11 @@ const initializeProviders = async (connection: WalletConnection): Promise<{
   };
 };
 
-const rememberSession = (contract: ActiveContract, privateState: VeilDrivePrivateState): MidnightContractSession => {
+const rememberSession = (contract: ActiveContract, privateState: VeilDrivePrivateState, providers: VeilProviders): MidnightContractSession => {
   activeContract = contract;
   activeAddress = contract.deployTxData.public.contractAddress;
+  activeProviders = providers;
+  providers.privateStateProvider.setContractAddress(activeAddress);
   identityCommitment = bytesToHex(pureCircuits.identityCommitment(privateState.secretKey));
   return { contractAddress: activeAddress, identityCommitment };
 };
@@ -137,7 +140,7 @@ export const deployVeilDriveContract = async (connection: WalletConnection): Pro
     privateStateId: VEIL_PRIVATE_STATE_ID,
     initialPrivateState: privateState,
   });
-  const session = rememberSession(contract, privateState);
+  const session = rememberSession(contract, privateState, providers);
   return { ...session, deploymentTransactionId: contract.deployTxData.public.txId };
 };
 
@@ -154,7 +157,7 @@ export const joinVeilDriveContract = async (
     privateStateId: VEIL_PRIVATE_STATE_ID,
     initialPrivateState: privateState,
   });
-  return rememberSession(contract, privateState);
+  return rememberSession(contract, privateState, providers);
 };
 
 export const getMidnightContractSession = (): MidnightContractSession | null =>
@@ -165,7 +168,7 @@ export const getMidnightContractSession = (): MidnightContractSession | null =>
 export const hasActiveMidnightContract = (): boolean => activeContract !== null;
 
 const requireContract = (): ActiveContract => {
-  if (!activeContract) throw new Error('Connect Lace and deploy or join the VeilDrive contract in Settings first.');
+  if (!activeContract) throw new Error('Connect Lace or 1AM and deploy or join the VeilDrive contract in Settings first.');
   return activeContract;
 };
 
@@ -290,6 +293,16 @@ export const revokeCredentialOnMidnight = async (credentialId: string) =>
   transactionId(await requireContract().callTx.revokeCredential(
     await bytes32(credentialId, 'veildrive:credential'),
   ));
+
+export const setLocalCredentialClaimsOnMidnight = async (claims: string) => {
+  if (!activeProviders) throw new Error('Deploy or join the VeilDrive contract before loading private credential claims.');
+  const current = await activeProviders.privateStateProvider.get(VEIL_PRIVATE_STATE_ID);
+  if (!current) throw new Error('The local private contract state is unavailable. Rejoin the registry.');
+  await activeProviders.privateStateProvider.set(VEIL_PRIVATE_STATE_ID, {
+    ...current,
+    credentialClaims: await bytes32(claims, 'veildrive:claims-payload'),
+  });
+};
 
 export const generateAuditProofOnMidnight = async (fileId: string, commitment: string) =>
   transactionId(await requireContract().callTx.recordAuditEvent(
