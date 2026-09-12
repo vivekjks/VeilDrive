@@ -30,12 +30,7 @@ export const ExternalSharePage = () => {
     setProofStatus('generating');
     setError('');
     try {
-      const request = await actions.createProofRequest(
-        `External capability · ${file.name}`,
-        grant.conditions.length ? `${grant.conditions.length} private access conditions satisfied` : 'Secure invitation capability is active',
-        ['Owner identity', 'Other recipients', 'Wallet activity'],
-      );
-      setProofCommitment(await actions.generateProof(request.id, request));
+      setProofCommitment(await actions.proveGrant(grant.id));
       setProofStatus('valid');
     } catch (reason) {
       setProofStatus('idle');
