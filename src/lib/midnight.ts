@@ -1,12 +1,14 @@
 import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
+const configuredProofServer = import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URI?.trim();
+
 export const PREPROD = {
   networkId: 'preprod',
   node: 'https://rpc.preprod.midnight.network',
   indexer: 'https://indexer.preprod.midnight.network/api/v4/graphql',
   indexerWs: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
-  proofServer: 'http://localhost:6300',
+  proofServer: configuredProofServer || 'https://proof-server.preprod.midnight.network',
   explorer: 'https://explorer.1am.xyz',
   faucet: 'https://midnight-tmnight-preprod.nethermind.dev/',
   registry: '9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b',
@@ -70,7 +72,7 @@ export const connectMidnightWallet = async (): Promise<WalletConnection> => {
     walletName,
     walletAddress: addresses.shieldedCoinPublicKey,
     networkId: status.networkId,
-    proofServerUri: configuration.proverServerUri ?? PREPROD.proofServer,
+    proofServerUri: PREPROD.proofServer,
     indexerUri: configuration.indexerUri ?? PREPROD.indexer,
     indexerWsUri: configuration.indexerWsUri ?? PREPROD.indexerWs,
   };
@@ -127,7 +129,7 @@ export const explorerContractUrl = (contractAddress: string): string =>
 export const readableMidnightError = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
   if (/'(?:check|prove)' returned an error:.*Failed to fetch/i.test(message)) {
-    return 'The local proof service is offline. Start the VeilDrive proof service, then try again.';
+    return 'The preprod proof service is unavailable. Wait a moment, then try again.';
   }
   return message;
 };

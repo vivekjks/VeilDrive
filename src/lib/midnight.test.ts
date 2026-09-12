@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { explorerContractUrl, explorerTransactionUrl, readableMidnightError } from './midnight';
+import { explorerContractUrl, explorerTransactionUrl, PREPROD, readableMidnightError } from './midnight';
+
+describe('Midnight preprod services', () => {
+  it('uses the hosted HTTPS prover by default', () => {
+    expect(PREPROD.proofServer).toBe('https://proof-server.preprod.midnight.network');
+  });
+});
 
 describe('Midnight explorer links', () => {
   it('opens preprod transactions in the 1AM explorer', () => {
@@ -13,10 +19,10 @@ describe('Midnight explorer links', () => {
 });
 
 describe('Midnight errors', () => {
-  it('explains how to recover when the private proof service is unavailable', () => {
+  it('explains how to recover when the preprod proof service is unavailable', () => {
     const raw = new Error("Unexpected error submitting scoped transaction '<unnamed>': Error: 'check' returned an error: TypeError: Failed to fetch");
     expect(readableMidnightError(raw)).toBe(
-      'The local proof service is offline. Start the VeilDrive proof service, then try again.',
+      'The preprod proof service is unavailable. Wait a moment, then try again.',
     );
   });
 

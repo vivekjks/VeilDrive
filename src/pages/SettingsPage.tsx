@@ -136,7 +136,7 @@ export const SettingsPage = () => {
           </header>
           <div className="endpoint-list">
             <div><span><i className={health.indexer ? 'is-online' : ''} />Indexer</span><code>{PREPROD.indexer}</code></div>
-            <div><span><i className={health.proofServer ? 'is-online' : ''} />Local proof service</span><code>{PREPROD.proofServer}</code></div>
+            <div><span><i className={health.proofServer ? 'is-online' : ''} />Hosted proof service</span><code>{PREPROD.proofServer}</code></div>
             <div><span><i className={health.node ? 'is-online' : ''} />Node RPC</span><code>{PREPROD.node}</code></div>
           </div>
           <div className="contract-config">

@@ -119,9 +119,9 @@ export const LandingPage = () => {
           {error && <div className="connect-error"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Lace</a><a href="https://1am.xyz/" target="_blank" rel="noreferrer">1AM</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
           <div className="health-row">
             <span className={health.indexer ? 'is-online' : ''}><i /> Preprod indexer</span>
-            <span className={health.proofServer ? 'is-online' : ''}><i /> Local proof server</span>
+            <span className={health.proofServer ? 'is-online' : ''}><i /> Hosted proof service</span>
           </div>
-          <p className="connect-note">Files stay encrypted on this device. Private witness data is used only for proof generation.</p>
+          <p className="connect-note">Files and encryption keys stay on this device. Proof inputs are processed by Midnight's hosted preprod prover.</p>
         </div>
       </Modal>
     </div>

@@ -69,12 +69,12 @@ Browser / PWA
   ├─ Wallet: signs identity unlocks and submits transactions
   └─ Midnight JS
        ├─ encrypted private-state database
-       ├─ local proof server at http://localhost:6300
+       ├─ hosted preprod proof server over HTTPS
        ├─ preprod indexer and node
        └─ VeilDrive Compact registry
 ```
 
-Midnight receives opaque, domain-separated identifiers and commitments plus the policy controls needed by the contract. It does not receive plaintext file bytes, readable names, comments, capability secrets, the local identity secret, or raw credential claims.
+The Midnight chain receives opaque, domain-separated identifiers and commitments plus the policy controls needed by the contract. It does not receive plaintext file bytes, readable names, comments, capability secrets, or raw credential claims. The hosted proof service processes private circuit witnesses to produce zero-knowledge proofs; users who do not want to share witness material with that service can opt into local proving.
 
 ### Upload and version flow
 
@@ -141,15 +141,15 @@ The compatible stack is pinned: Midnight JS `4.1.1`, DApp Connector API `4.0.1`,
 ```bash
 pnpm install
 pnpm contract:compile:wsl
-pnpm proof-server
 pnpm dev
 ```
 
 Open `http://localhost:5173`, connect a compatible wallet, and choose **Settings → Deploy new registry**. To use an existing registry, enter its complete address and choose **Join registry**.
 
-On Windows, the proof-server command runs Docker through WSL and reuses the named container:
+The hosted preprod proof service is used by default. For an optional local privacy mode, set `VITE_MIDNIGHT_PROOF_SERVER_URI=http://localhost:6300`, then run:
 
 ```bash
+pnpm proof-server
 pnpm proof-server:status
 pnpm proof-server:stop
 ```
@@ -182,7 +182,7 @@ The repository includes `vercel.json`. Build and deploy with:
 vercel --prod
 ```
 
-Vercel serves the static PWA and its proving assets. Midnight JS deliberately connects the user’s browser to a loopback proof service, so each production user still needs the pinned proof server reachable at `http://localhost:6300`. A hosted proving service is not silently substituted because proof requests may contain private witness material.
+Vercel serves the static PWA and its proving assets. Production browsers use Midnight's HTTPS preprod proof service, so visitors do not need Docker or WSL. Proof requests contain private circuit witnesses; deployments that do not accept that service boundary should select the optional local prover instead.
 
 For a release, run `pnpm check`, deploy, open the production URL in Chrome, connect a preprod wallet, run the endpoint health check, join/deploy the registry, and confirm a real write and explorer receipt.
 

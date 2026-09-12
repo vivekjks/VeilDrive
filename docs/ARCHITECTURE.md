@@ -12,12 +12,12 @@ Browser / PWA
   └─ Midnight JS providers
        ├─ encrypted private-state database
        ├─ proving keys served from the app origin
-       ├─ loopback proof server at localhost:6300
+       ├─ hosted preprod proof server over HTTPS
        ├─ preprod indexer
        └─ VeilDrive Compact contract
 ```
 
-The storage provider never receives plaintext. Midnight never receives the file bytes, names, comments, private identity secret, or raw credential claims. It receives domain-separated identifiers, SHA-256 commitments, permission masks, lifecycle controls, and proof/audit commitments.
+The storage provider never receives plaintext. The Midnight chain never receives file bytes, names, comments, or raw credential claims. The hosted proof service processes circuit inputs, including private witnesses, to produce zero-knowledge proofs. The chain receives domain-separated identifiers, SHA-256 commitments, permission masks, lifecycle controls, and proof/audit commitments.
 
 ## Upload transaction
 

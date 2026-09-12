@@ -8,7 +8,7 @@
 | Node RPC | `https://rpc.preprod.midnight.network` |
 | Indexer HTTP | `https://indexer.preprod.midnight.network/api/v4/graphql` |
 | Indexer WebSocket | `wss://indexer.preprod.midnight.network/api/v4/graphql/ws` |
-| Local proof server | `http://localhost:6300` |
+| Hosted proof server | `https://proof-server.preprod.midnight.network` |
 | Explorer | `https://explorer.1am.xyz/?network=preprod` |
 | Faucet | `https://midnight-tmnight-preprod.nethermind.dev/` |
 
@@ -27,7 +27,7 @@ The production app pre-fills this canonical registry for new encrypted vaults. E
 ## First deployment
 
 1. Compile the contract once with `pnpm contract:compile:wsl`.
-2. Start the pinned proof service with `pnpm proof-server` and verify `pnpm proof-server:status`.
+2. Verify that `https://proof-server.preprod.midnight.network/version` returns `8.1.0`.
 3. Start VeilDrive with `pnpm dev`.
 4. Configure a DApp Connector API v4 wallet for Midnight preprod and fund it from the faucet.
 5. Select **Connect compatible wallet**. VeilDrive discovers Lace/1AM by scanning `window.midnight` and requires API major version 4.
@@ -45,9 +45,11 @@ Paste its full contract address under **Settings → Existing contract address**
 
 - **No compatible wallet:** confirm the extension is enabled for `http://localhost:5173`, its Midnight account is on preprod, and its DApp Connector API is v4.
 - **Request failed:** unlock the wallet and retry. If an extension permission window opens, complete it in the wallet.
-- **Proof server offline:** run `pnpm proof-server`; `http://localhost:6300/version` should return `8.1.0`.
+- **Proof service unavailable:** verify that `https://proof-server.preprod.midnight.network/version` returns `8.1.0`, then retry.
 - **Insufficient balance or DUST:** use the preprod faucet and wait for wallet sync.
 - **Contract not selected:** deploy a new registry or join an existing contract before attempting preprod uploads/shares.
-- **Cold proof is slow:** keep the app tab open while the local proof server loads the selected circuit assets.
+- **Cold proof is slow:** keep the app tab open while the hosted proof service processes the selected circuit.
+
+To use a local prover during development, set `VITE_MIDNIGHT_PROOF_SERVER_URI=http://localhost:6300` and run `pnpm proof-server` before starting Vite.
 
 The integration follows the official [wallet connector guide](https://docs.midnight.network/sdks/community/wallets/community-wallets-integration) and [DApp Connector API reference](https://docs.midnight.network/api-reference/dapp-connector).

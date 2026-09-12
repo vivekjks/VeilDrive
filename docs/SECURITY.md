@@ -19,10 +19,11 @@
 - Recovery guardians in this build are a planning/control surface, not a deployed threshold-recovery cryptosystem.
 - The product has no demo receipt mode. An on-chain action fails visibly when a preprod wallet or contract is unavailable.
 - Credential packages transport private claim material out of band and are bound to the holder’s Veil ID. The package is sensitive and must be delivered only to that holder.
+- The zero-setup production configuration sends circuit inputs to Midnight's hosted preprod proof service. Use the optional local prover when the proof-service operator must not receive private witness material.
 
 ## Operational recommendations
 
-- Run only the pinned proof-server image and bind it to loopback.
+- For higher-assurance deployments, run the pinned proof-server image locally and bind it to loopback.
 - Treat `public/keys` as large public proving assets; they contain no user witness data.
 - Serve production builds over HTTPS with strict CSP, frame protection, and immutable hashed assets.
 - Use a dedicated encrypted blob service with authenticated upload URLs for multi-device deployments.
