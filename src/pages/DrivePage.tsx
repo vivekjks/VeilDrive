@@ -17,7 +17,7 @@ export const DrivePage = () => {
   const { state, actions } = useAppStore();
   const [params] = useSearchParams();
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>('file-acquisition');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareFile, setShareFile] = useState<DriveItem | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
@@ -25,10 +25,13 @@ export const DrivePage = () => {
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [filter, setFilter] = useState<'all' | 'folders' | 'recent' | 'starred'>('all');
   const [sort, setSort] = useState<'modified' | 'name'>('modified');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [actionError, setActionError] = useState('');
   const query = (params.get('q') ?? '').toLowerCase();
 
   const parentFolder = state.items.find((item) => item.id === folderId);
   const selected = state.items.find((item) => item.id === selectedId && item.kind === 'file') ?? null;
+  const totalBytes = state.items.filter((item) => item.kind === 'file' && !item.trashed).reduce((sum, item) => sum + item.size, 0);
   const visible = useMemo(() => {
     let items = state.items.filter((item) => !item.trashed && !item.workspaceId && !item.dataRoomId);
     if (query) items = items.filter((item) => `${item.name} ${item.tags.join(' ')}`.toLowerCase().includes(query));
@@ -45,21 +48,30 @@ export const DrivePage = () => {
     else setSelectedId(item.id);
   };
 
-  const createFolder = () => {
+  const createFolder = async () => {
     if (!folderName.trim()) return;
-    actions.createFolder(folderName.trim(), folderId);
-    setFolderName(''); setFolderOpen(false);
+    setCreatingFolder(true);
+    setActionError('');
+    try {
+      await actions.createFolder(folderName.trim(), folderId);
+      setFolderName(''); setFolderOpen(false);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Folder creation failed.');
+    } finally {
+      setCreatingFolder(false);
+    }
   };
 
   return (
     <div className={`drive-page ${selected ? 'drive-page--inspector' : ''}`}>
       <section className="drive-canvas">
         <header className="page-heading drive-heading">
-          <div><span className="eyebrow">{query ? 'Search results' : parentFolder ? 'Private folder' : 'My drive'}</span><h1>{query ? `“${params.get('q')}”` : parentFolder?.name ?? 'Good morning, Alice'}</h1><p>{query ? `${visible.length} encrypted items found.` : parentFolder ? 'Names and contents are encrypted on this device.' : 'Secure storage for what matters.'}</p></div>
+          <div><span className="eyebrow">{query ? 'Search results' : parentFolder ? 'Private folder' : 'My drive'}</span><h1>{query ? `“${params.get('q')}”` : parentFolder?.name ?? 'My encrypted drive'}</h1><p>{query ? `${visible.length} encrypted items found.` : 'Files stay encrypted; commitments stay verifiable.'}</p></div>
           <div className="drive-heading__actions"><Button tone="secondary" onClick={() => setFolderOpen(true)} trailing={false}><Plus size={17} weight="light" /> New folder</Button><Button tone="primary" onClick={() => setUploadOpen(true)} trailing={<CaretDown size={14} weight="light" />}><UploadSimple size={17} weight="light" /> Upload</Button></div>
         </header>
 
-        <div className="storage-strip bezel"><div className="bezel__core"><div className="storage-meter"><strong>42%</strong><i /></div><div><span>420 GB <small>of 1 TB protected</small></span><p>Securely synced <i className="status-dot" /> All good</p></div><div className="storage-fact"><strong>End-to-end encrypted</strong><span>Only authorized collaborators can decrypt.</span></div><div className="storage-fact"><strong>Midnight commitments</strong><span>{state.versions.length} versions ready to verify.</span></div></div></div>
+        <div className="storage-strip bezel"><div className="bezel__core"><div className="storage-meter"><strong>{state.items.filter((item) => item.kind === 'file' && !item.trashed).length}</strong><i style={{ transform: `scaleX(${state.items.length ? 1 : 0})` }} /></div><div><span>{formatBytes(totalBytes)} <small>encrypted locally</small></span><p><i className="status-dot" /> Preprod registry</p></div><div className="storage-fact"><strong>Client-side encrypted</strong><span>Readable bytes stay on this device.</span></div><div className="storage-fact"><strong>On-chain commitments</strong><span>{state.versions.length} registered versions.</span></div></div></div>
+        {actionError && <p className="form-error" role="alert">{actionError}</p>}
 
         {folderId && <div className="breadcrumbs"><button onClick={() => setFolderId(null)}>My drive</button><CaretRight size={13} weight="light" /><span>{parentFolder?.name}</span></div>}
         <div className="drive-toolbar"><div>{(['all', 'folders', 'recent', 'starred'] as const).map((item) => <button key={item} className={filter === item ? 'is-active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div><button className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-label="List view"><List size={17} weight="light" /></button><button className={view === 'grid' ? 'is-active' : ''} onClick={() => setView('grid')} aria-label="Grid view"><GridFour size={17} weight="light" /></button><button onClick={() => setSort((value) => value === 'modified' ? 'name' : 'modified')}><SortAscending size={17} weight="light" /> {sort === 'modified' ? 'Modified' : 'Name'}</button></div></div>
@@ -69,9 +81,9 @@ export const DrivePage = () => {
             <div className="file-table__head" role="row"><span>Name</span><span>Privacy</span><span>Size</span><span>Last modified</span><span /></div>
             {visible.map((item) => (
               <div className={`file-row ${selectedId === item.id ? 'is-selected' : ''}`} key={item.id} role="row" tabIndex={0} onClick={() => openItem(item)} onDoubleClick={() => openItem(item)} onKeyDown={(event) => event.key === 'Enter' && openItem(item)}>
-                <div className="file-row__name"><span className="file-glyph"><FileIcon item={item} size={20} /></span><button className={`star-button ${item.favorite ? 'is-active' : ''}`} onClick={(event) => { event.stopPropagation(); actions.toggleFavorite(item.id); }} aria-label="Toggle favorite"><Star size={15} weight={item.favorite ? 'fill' : 'light'} /></button><strong>{item.name}</strong></div>
+                <div className="file-row__name"><span className="file-glyph"><FileIcon item={item} size={20} /></span><button className={`star-button ${item.favorite ? 'is-active' : ''}`} onClick={(event) => { event.stopPropagation(); setActionError(''); actions.toggleFavorite(item.id).catch((error) => setActionError(error instanceof Error ? error.message : 'Favorite update failed.')); }} aria-label="Toggle favorite"><Star size={15} weight={item.favorite ? 'fill' : 'light'} /></button><strong>{item.name}</strong></div>
                 <PrivacyBadge level={item.privacy} /><span>{formatBytes(item.size)}</span><span>{formatDate(item.modifiedAt)}</span>
-                <div className="row-actions"><button aria-label="Move to trash" onClick={(event) => { event.stopPropagation(); actions.moveToTrash(item.id); }}><Trash size={16} weight="light" /></button><button aria-label="Open details" onClick={(event) => { event.stopPropagation(); openItem(item); }}><DotsThree size={19} weight="bold" /></button></div>
+                <div className="row-actions"><button aria-label="Move to trash" onClick={(event) => { event.stopPropagation(); setActionError(''); actions.moveToTrash(item.id).catch((error) => setActionError(error instanceof Error ? error.message : 'Trash update failed.')); }}><Trash size={16} weight="light" /></button><button aria-label="Open details" onClick={(event) => { event.stopPropagation(); openItem(item); }}><DotsThree size={19} weight="bold" /></button></div>
               </div>
             ))}
             {visible.length === 0 && <div className="empty-state"><FileIcon item={{ kind: 'folder' } as DriveItem} size={38} /><h3>No encrypted items here</h3><p>Upload a file or create a private folder to begin.</p></div>}
@@ -84,7 +96,7 @@ export const DrivePage = () => {
       {selected && <FileInspector file={selected} onClose={() => setSelectedId(null)} onShare={() => setShareFile(selected)} />}
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} parentId={folderId} onComplete={setSelectedId} />
       <ShareModal file={shareFile} onClose={() => setShareFile(null)} />
-      <Modal open={folderOpen} onClose={() => setFolderOpen(false)} title="Create a private folder"><form className="simple-form" onSubmit={(event) => { event.preventDefault(); createFolder(); }}><label className="field"><span>Folder name</span><input autoFocus className="input" value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder="e.g. Legal review" /></label><p>Its name will be encrypted before storage. Only authorized collaborators can resolve it.</p><footer className="modal-actions"><Button tone="quiet" trailing={false} type="button" onClick={() => setFolderOpen(false)}>Cancel</Button><Button tone="primary" type="submit" disabled={!folderName.trim()}>Create folder</Button></footer></form></Modal>
+      <Modal open={folderOpen} onClose={() => !creatingFolder && setFolderOpen(false)} title="Create a private folder"><form className="simple-form" onSubmit={(event) => { event.preventDefault(); createFolder(); }}><label className="field"><span>Folder name</span><input autoFocus className="input" value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder="e.g. Legal review" /></label>{actionError && <p className="form-error" role="alert">{actionError}</p>}<footer className="modal-actions"><Button tone="quiet" trailing={false} type="button" onClick={() => setFolderOpen(false)} disabled={creatingFolder}>Cancel</Button><Button tone="primary" type="submit" disabled={creatingFolder || !folderName.trim()}>{creatingFolder ? 'Committing…' : 'Create folder'}</Button></footer></form></Modal>
     </div>
   );
 };

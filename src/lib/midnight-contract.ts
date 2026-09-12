@@ -302,11 +302,17 @@ export const commitPrivateRecordOnMidnight = async (
   recordId: string,
   recordType: string,
   payload: string,
-) => transactionId(await requireContract().callTx.commitPrivateRecord(
-  await bytes32(recordId, 'veildrive:private-record-id'),
-  await bytes32(recordType, 'veildrive:private-record-type'),
-  await bytes32(await sha256(payload), 'veildrive:private-record-payload'),
-));
+) => {
+  // Public records receive fresh client-side entropy so low-cardinality values
+  // cannot be guessed or correlated from their ledger commitment.
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  const saltedPayload = `${bytesToHex(salt)}:${payload}`;
+  return transactionId(await requireContract().callTx.commitPrivateRecord(
+    await bytes32(recordId, 'veildrive:private-record-id'),
+    await bytes32(recordType, 'veildrive:private-record-type'),
+    await bytes32(await sha256(saltedPayload), 'veildrive:private-record-payload'),
+  ));
+};
 
 export const revokePrivateRecordOnMidnight = async (recordId: string) =>
   transactionId(await requireContract().callTx.revokePrivateRecord(

@@ -7,6 +7,7 @@ import type {
   AuditEvent,
   Comment,
   Credential,
+  DataRoom,
   DriveItem,
   EncryptedVersion,
   Guardian,
@@ -42,7 +43,7 @@ const auditEvent = (
 ): AuditEvent => ({
   id: randomId('audit'),
   action,
-  actor: 'Alice Chen',
+  actor: 'Vault owner',
   target,
   fileId,
   createdAt: new Date().toISOString(),
@@ -66,11 +67,13 @@ interface AppActions {
   addTags: (fileId: string, tags: string[]) => Promise<void>;
   share: (fileId: string, draft: ShareDraft) => Promise<AccessGrant>;
   revokeGrant: (grantId: string) => Promise<void>;
+  proveGrant: (grantId: string) => Promise<string>;
   consumeGrant: (grantId: string) => Promise<void>;
   addComment: (fileId: string, body: string) => Promise<void>;
   resolveAccessRequest: (requestId: string, result: 'granted' | 'rejected') => Promise<void>;
   createAccessRequest: (fileId: string, permission: AccessGrant['permissions'][number], message: string) => Promise<void>;
   addWorkspace: (name: string, description: string) => Promise<Workspace>;
+  createDataRoom: (name: string, description: string, expiresAt: string, credentialRequirement: string) => Promise<DataRoom>;
   inviteToDataRoom: (roomId: string, memberId: string) => Promise<void>;
   updateMember: (memberId: string, patch: Partial<Member>) => Promise<void>;
   addMember: (member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => Promise<Member>;
@@ -189,7 +192,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       workspaceId: parent?.workspaceId,
       dataRoomId: parent?.dataRoomId,
     };
-    await commitRecord('folder', item.id, item);
+    await commitRecord('item-metadata', item.id, item);
     dispatch((current) => ({ ...current, items: [item, ...current.items] }));
     return item;
   }, [state.items]);
@@ -198,7 +201,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const target = state.items.find((item) => item.id === fileId);
     if (!target) throw new Error('File not found.');
     const nextVersion = target.versionIds.length + 1;
-    const version = await encryptBlob(file, fileId, nextVersion, 'alice', { name: target.name, type: file.type, size: file.size });
+    const version = await encryptBlob(file, fileId, nextVersion, 'owner', { name: target.name, type: file.type, size: file.size });
     if (state.session.mode === 'preprod') {
       try {
         const { updateFileOnMidnight } = await loadMidnightContract();
@@ -376,51 +379,101 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     dispatch((current) => ({ ...current, grants: current.grants.map((candidate) => candidate.id === grantId ? { ...candidate, consumedAt } : candidate) }));
   }, [state.credentials, state.grants]);
 
-  const addComment = useCallback((fileId: string, body: string) => dispatch((current) => {
-    const comment: Comment = { id: randomId('comment'), fileId, author: current.session.displayName, body, encrypted: true, createdAt: new Date().toISOString() };
-    const file = current.items.find((item) => item.id === fileId);
-    return { ...current, comments: [...current.comments, comment], audit: [auditEvent('comment', file?.name ?? fileId, fileId), ...current.audit] };
-  }), []);
+  const proveGrant = useCallback(async (grantId: string) => {
+    const grant = state.grants.find((candidate) => candidate.id === grantId);
+    if (!grant) throw new Error('Access grant not found.');
+    if (grant.revokedAt) throw new Error('This access grant has been revoked.');
+    if (grant.expiresAt && new Date(grant.expiresAt).getTime() <= Date.now()) throw new Error('This access grant has expired.');
+    if (grant.oneTime && grant.consumedAt) throw new Error('This one-time access grant has already been consumed.');
+    const contract = await loadMidnightContract();
+    let receipt: string;
+    if (grant.method === 'wallet') {
+      receipt = await contract.proveWalletAccessOnMidnight(grant.fileId);
+    } else if (grant.method === 'policy' || grant.method === 'team') {
+      const credential = state.credentials.find((candidate) => candidate.status === 'active');
+      if (!credential) throw new Error('An active credential is required to prove this policy.');
+      receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id);
+    } else {
+      receipt = await commitRecord('external-access-proof', grant.id, {
+        grantId: grant.id,
+        fileId: grant.fileId,
+        provedAt: new Date().toISOString(),
+      });
+    }
+    const file = state.items.find((candidate) => candidate.id === grant.fileId);
+    dispatch((current) => ({
+      ...current,
+      audit: [auditEvent('proof', file?.name ?? grant.fileId, grant.fileId, { actor: current.session.displayName, transactionId: receipt }), ...current.audit],
+    }));
+    return receipt;
+  }, [state.credentials, state.grants, state.items]);
 
-  const resolveAccessRequest = useCallback((requestId: string, result: 'granted' | 'rejected') => dispatch((current) => ({
-    ...current,
-    accessRequests: current.accessRequests.map((request) => request.id === requestId ? { ...request, status: result } : request),
-  })), []);
+  const addComment = useCallback(async (fileId: string, body: string) => {
+    const comment: Comment = { id: randomId('comment'), fileId, author: state.session.displayName, body, encrypted: true, createdAt: new Date().toISOString() };
+    const transactionId = await commitRecord('encrypted-comment', comment.id, comment);
+    const file = state.items.find((item) => item.id === fileId);
+    dispatch((current) => ({ ...current, comments: [...current.comments, comment], audit: [auditEvent('comment', file?.name ?? fileId, fileId, { actor: current.session.displayName, transactionId }), ...current.audit] }));
+  }, [state.items, state.session.displayName]);
 
-  const createAccessRequest = useCallback((fileId: string, permission: AccessGrant['permissions'][number], message: string) => dispatch((current) => ({
-    ...current,
-    accessRequests: [{ id: randomId('request'), fileId, requesterId: 'alice', requesterName: current.session.displayName, permission, message, status: 'pending', createdAt: new Date().toISOString() }, ...current.accessRequests],
-  })), []);
+  const resolveAccessRequest = useCallback(async (requestId: string, result: 'granted' | 'rejected') => {
+    const request = state.accessRequests.find((candidate) => candidate.id === requestId);
+    if (!request) throw new Error('Access request not found.');
+    const updated = { ...request, status: result };
+    await commitRecord('access-request', requestId, updated);
+    dispatch((current) => ({ ...current, accessRequests: current.accessRequests.map((candidate) => candidate.id === requestId ? updated : candidate) }));
+  }, [state.accessRequests]);
 
-  const addWorkspace = useCallback((name: string, description: string) => {
-    const root = createFolder(name, null, 'confidential');
-    const workspace: Workspace = { id: randomId('workspace'), name, description, memberIds: ['alice'], privacy: 'confidential', rootFolderId: root.id };
+  const createAccessRequest = useCallback(async (fileId: string, permission: AccessGrant['permissions'][number], message: string) => {
+    const request = { id: randomId('request'), fileId, requesterId: 'owner', requesterName: state.session.displayName, permission, message, status: 'pending' as const, createdAt: new Date().toISOString() };
+    await commitRecord('access-request', request.id, request);
+    dispatch((current) => ({ ...current, accessRequests: [request, ...current.accessRequests] }));
+  }, [state.session.displayName]);
+
+  const addWorkspace = useCallback(async (name: string, description: string) => {
+    const root = await createFolder(name, null, 'confidential');
+    const workspace: Workspace = { id: randomId('workspace'), name, description, memberIds: ['owner'], privacy: 'confidential', rootFolderId: root.id };
+    await commitRecord('workspace', workspace.id, workspace);
     dispatch((current) => ({ ...current, workspaces: [...current.workspaces, workspace], items: current.items.map((item) => item.id === root.id ? { ...item, workspaceId: workspace.id } : item) }));
     return workspace;
   }, [createFolder]);
 
-  const inviteToDataRoom = useCallback((roomId: string, memberId: string) => dispatch((current) => ({
-    ...current,
-    dataRooms: current.dataRooms.map((room) => room.id === roomId
-      ? { ...room, participantIds: Array.from(new Set([...room.participantIds, memberId])) }
-      : room),
-    members: current.members.map((member) => member.id === memberId ? { ...member, status: 'invited' } : member),
-    notifications: [{
-      id: randomId('notice'),
-      title: 'Data room invitation sent',
-      body: `${current.members.find((member) => member.id === memberId)?.name ?? 'A participant'} must prove the required credential before access.`,
-      createdAt: new Date().toISOString(),
-      read: false,
-      type: 'workspace',
-    }, ...current.notifications],
-  })), []);
+  const createDataRoom = useCallback(async (name: string, description: string, expiresAt: string, credentialRequirement: string) => {
+    const root = await createFolder(name, null, 'maximum');
+    const room: DataRoom = {
+      id: randomId('room'), name, description, rootFolderId: root.id, participantIds: ['owner'],
+      privacy: 'maximum', expiresAt, credentialRequirement,
+    };
+    await commitRecord('data-room', room.id, room);
+    dispatch((current) => ({
+      ...current,
+      dataRooms: [room, ...current.dataRooms],
+      items: current.items.map((item) => item.id === root.id ? { ...item, dataRoomId: room.id } : item),
+    }));
+    return room;
+  }, [createFolder]);
 
-  const updateMember = useCallback((memberId: string, patch: Partial<Member>) => dispatch((current) => ({
-    ...current, members: current.members.map((member) => member.id === memberId ? { ...member, ...patch } : member),
-  })), []);
+  const inviteToDataRoom = useCallback(async (roomId: string, memberId: string) => {
+    const room = state.dataRooms.find((candidate) => candidate.id === roomId);
+    const member = state.members.find((candidate) => candidate.id === memberId);
+    if (!room || !member) throw new Error('Data room or member not found.');
+    const updatedRoom = { ...room, participantIds: Array.from(new Set([...room.participantIds, memberId])) };
+    await commitRecord('data-room', roomId, updatedRoom);
+    dispatch((current) => ({ ...current, dataRooms: current.dataRooms.map((candidate) => candidate.id === roomId ? updatedRoom : candidate), members: current.members.map((candidate) => candidate.id === memberId ? { ...candidate, status: 'invited' } : candidate), notifications: [{ id: randomId('notice'), title: 'Data room invitation sent', body: `${member.name} must prove the required credential before access.`, createdAt: new Date().toISOString(), read: false, type: 'workspace' }, ...current.notifications] }));
+  }, [state.dataRooms, state.members]);
 
-  const addMember = useCallback((member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => {
+  const updateMember = useCallback(async (memberId: string, patch: Partial<Member>) => {
+    const member = state.members.find((candidate) => candidate.id === memberId);
+    if (!member) throw new Error('Member not found.');
+    const updated = { ...member, ...patch };
+    await commitRecord('member', memberId, updated);
+    dispatch((current) => ({ ...current, members: current.members.map((candidate) => candidate.id === memberId ? updated : candidate) }));
+  }, [state.members]);
+
+  const addMember = useCallback(async (member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => {
     const created: Member = { ...member, id: randomId('member'), joinedAt: new Date().toISOString() };
+    const workspace = state.workspaces.find((candidate) => candidate.id === (workspaceId ?? state.workspaces[0]?.id));
+    await commitRecord('member', created.id, created);
+    if (workspace) await commitRecord('workspace', workspace.id, { ...workspace, memberIds: [...workspace.memberIds, created.id] });
     dispatch((current) => ({
       ...current,
       members: [...current.members, created],
@@ -429,7 +482,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
         : workspace),
     }));
     return created;
-  }, []);
+  }, [state.workspaces]);
 
   const issueCredential = useCallback(async (input: Omit<Credential, 'id' | 'commitment'>) => {
     const id = randomId('credential');
@@ -438,7 +491,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     if (state.session.mode === 'preprod') {
       const { issueCredentialOnMidnight } = await loadMidnightContract();
       const member = state.members.find((candidate) => candidate.id === input.subjectId);
-      const holderIdentity = input.subjectId === 'alice' ? state.session.veilId : member?.veilId;
+      const holderIdentity = input.subjectId === 'owner' ? state.session.veilId : member?.veilId;
       if (!holderIdentity || !/^[0-9a-f]{64}$/i.test(holderIdentity)) {
         throw new Error('This member needs a 64-character Veil ID before a credential can be issued on preprod.');
       }
@@ -460,8 +513,9 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     }));
   }, [state.session.mode]);
 
-  const createProofRequest = useCallback((title: string, condition: string, hiddenFields: string[]) => {
+  const createProofRequest = useCallback(async (title: string, condition: string, hiddenFields: string[]) => {
     const request: ProofRequest = { id: randomId('proof'), title, condition, hiddenFields, status: 'draft', createdAt: new Date().toISOString() };
+    await commitRecord('proof-request', request.id, request);
     dispatch((current) => ({ ...current, proofRequests: [request, ...current.proofRequests] }));
     return request;
   }, []);
@@ -483,28 +537,41 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return commitment;
   }, [state.proofRequests, state.session.mode, state.session.walletAddress]);
 
-  const addGuardian = useCallback((guardian: Omit<Guardian, 'id' | 'approved'>) => {
+  const addGuardian = useCallback(async (guardian: Omit<Guardian, 'id' | 'approved'>) => {
     const created: Guardian = { ...guardian, id: randomId('guardian'), approved: false };
+    await commitRecord('recovery-guardian', created.id, created);
     dispatch((current) => ({ ...current, guardians: [...current.guardians, created] }));
     return created;
   }, []);
 
-  const toggleGuardian = useCallback((guardianId: string) => dispatch((current) => ({
-    ...current, guardians: current.guardians.map((guardian) => guardian.id === guardianId ? { ...guardian, approved: !guardian.approved } : guardian),
-  })), []);
+  const toggleGuardian = useCallback(async (guardianId: string) => {
+    const guardian = state.guardians.find((candidate) => candidate.id === guardianId);
+    if (!guardian) throw new Error('Recovery guardian not found.');
+    const updated = { ...guardian, approved: !guardian.approved };
+    await commitRecord('recovery-guardian', guardianId, updated);
+    dispatch((current) => ({ ...current, guardians: current.guardians.map((candidate) => candidate.id === guardianId ? updated : candidate) }));
+  }, [state.guardians]);
 
-  const setRecoveryThreshold = useCallback((threshold: number) => dispatch((current) => ({ ...current, recoveryThreshold: threshold })), []);
+  const setRecoveryThreshold = useCallback(async (threshold: number) => {
+    await commitRecord('recovery-policy', 'recovery-threshold', { threshold, guardianIds: state.guardians.map((guardian) => guardian.id) });
+    dispatch((current) => ({ ...current, recoveryThreshold: threshold }));
+  }, [state.guardians]);
 
   const createApiKey = useCallback(async (label: string) => {
     const secret = `veil_live_${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`;
     const key: ApiKey = { id: randomId('api'), label, prefix: secret.slice(0, 18), createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null };
+    await commitRecord('developer-key', key.id, key);
     dispatch((current) => ({ ...current, apiKeys: [...current.apiKeys, key] }));
     return { key, secret };
   }, []);
 
-  const revokeApiKey = useCallback((keyId: string) => dispatch((current) => ({
-    ...current, apiKeys: current.apiKeys.map((key) => key.id === keyId ? { ...key, revokedAt: new Date().toISOString() } : key),
-  })), []);
+  const revokeApiKey = useCallback(async (keyId: string) => {
+    const key = state.apiKeys.find((candidate) => candidate.id === keyId);
+    if (!key) throw new Error('Developer key not found.');
+    const { revokePrivateRecordOnMidnight } = await loadMidnightContract();
+    await revokePrivateRecordOnMidnight(keyId);
+    dispatch((current) => ({ ...current, apiKeys: current.apiKeys.map((candidate) => candidate.id === keyId ? { ...candidate, revokedAt: new Date().toISOString() } : candidate) }));
+  }, [state.apiKeys]);
 
   const markNotificationsRead = useCallback(() => dispatch((current) => ({ ...current, notifications: current.notifications.map((notice) => ({ ...notice, read: true })) })), []);
   const setStorageProvider = useCallback((provider: AppState['storageProvider']) => {
@@ -520,15 +587,15 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
 
   const actions = useMemo<AppActions>(() => ({
     connect, disconnect, upload, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
-    deleteForever, rename, addTags, share, revokeGrant, consumeGrant, addComment, resolveAccessRequest,
-    createAccessRequest, addWorkspace, inviteToDataRoom, updateMember, addMember, issueCredential, revokeCredential,
+    deleteForever, rename, addTags, share, revokeGrant, proveGrant, consumeGrant, addComment, resolveAccessRequest,
+    createAccessRequest, addWorkspace, createDataRoom, inviteToDataRoom, updateMember, addMember, issueCredential, revokeCredential,
     createProofRequest, generateProof, addGuardian, toggleGuardian, setRecoveryThreshold, createApiKey,
     revokeApiKey, markNotificationsRead, setStorageProvider, toggleSidebar, resetVault,
   }), [
     addComment, addGuardian, addMember, addTags, addVersion, addWorkspace, connect, createAccessRequest,
-    createApiKey, createFolder, createProofRequest, deleteForever, disconnect, download, generateProof,
+    createApiKey, createDataRoom, createFolder, createProofRequest, deleteForever, disconnect, download, generateProof,
     inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetVault, resolveAccessRequest, restore,
-    revokeApiKey, revokeCredential, revokeGrant, setRecoveryThreshold, setStorageProvider, share,
+    revokeApiKey, revokeCredential, revokeGrant, proveGrant, setRecoveryThreshold, setStorageProvider, share,
     toggleFavorite, toggleGuardian, toggleSidebar, updateMember, upload, consumeGrant,
   ]);
 

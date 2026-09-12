@@ -30,7 +30,7 @@ export const ExternalSharePage = () => {
     setProofStatus('generating');
     setError('');
     try {
-      const request = actions.createProofRequest(
+      const request = await actions.createProofRequest(
         `External capability · ${file.name}`,
         grant.conditions.length ? `${grant.conditions.length} private access conditions satisfied` : 'Secure invitation capability is active',
         ['Owner identity', 'Other recipients', 'Wallet activity'],
@@ -50,7 +50,7 @@ export const ExternalSharePage = () => {
       const blob = await actions.download(file.id);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name; anchor.click();
-      if (grant.oneTime) actions.consumeGrant(grant.id);
+      if (grant.oneTime) await actions.consumeGrant(grant.id);
       setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The encrypted file could not be opened.');

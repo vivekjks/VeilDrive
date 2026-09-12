@@ -65,6 +65,15 @@ export const FileInspector = ({ file, onClose, onShare }: FileInspectorProps) =>
     finally { setBusy(false); if (versionInput.current) versionInput.current.value = ''; }
   };
 
+  const submitComment = async () => {
+    if (!comment.trim()) return;
+    setBusy(true);
+    setError('');
+    try { await actions.addComment(file.id, comment.trim()); setComment(''); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'The encrypted comment could not be committed.'); }
+    finally { setBusy(false); }
+  };
+
   return (
     <>
       <aside className="file-inspector">
@@ -75,7 +84,7 @@ export const FileInspector = ({ file, onClose, onShare }: FileInspectorProps) =>
         <section className="inspector-section"><header><h3><LockKey size={18} weight="light" /> Encryption</h3><PrivacyBadge level={file.privacy} /></header><dl><div><dt>Status</dt><dd>End-to-end encrypted</dd></div><div><dt>Commitment</dt><dd>{shortHash(current?.commitment)}</dd></div><div><dt>Stored on</dt><dd><i className="status-dot" /> {state.storageProvider === 'indexeddb' ? 'This device' : state.storageProvider.toUpperCase()}</dd></div></dl></section>
         <section className="inspector-section"><header><h3><UsersThree size={18} weight="light" /> Access ({grants.filter((grant) => !grant.revokedAt).length})</h3><button onClick={onShare}>Manage</button></header>{grants.length === 0 ? <p className="empty-copy">Only you can access this file.</p> : grants.slice(0,3).map((grant) => <div className="grant-row" key={grant.id}><span>{grant.recipientLabel.slice(0, 1).toUpperCase()}</span><div><strong>{grant.recipientLabel}</strong><small>{grant.revokedAt ? 'Revoked' : grant.permissions.join(' · ')}</small></div>{!grant.revokedAt && <button disabled={busy} onClick={() => revoke(grant.id)}>Revoke</button>}</div>)}</section>
         <section className="inspector-section"><header><h3><ClockCounterClockwise size={18} weight="light" /> Versions ({versions.length})</h3><button disabled={busy} onClick={() => versionInput.current?.click()}>Add</button></header><input className="sr-only" type="file" ref={versionInput} onChange={(event) => { const selected = event.target.files?.[0]; if (selected) addVersion(selected); }} />{versions.slice(0,4).map((version) => <div className="version-row" key={version.id}><strong>v{version.version}</strong><span>{formatDate(version.createdAt, true)}</span>{version.id === file.currentVersionId && <em>Current</em>}</div>)}</section>
-        <section className="inspector-section inspector-comments"><header><h3><ChatCircle size={18} weight="light" /> Encrypted comments ({comments.length})</h3></header>{comments.map((item) => <article key={item.id}><span>{item.author.slice(0, 1)}</span><div><strong>{item.author}<small>{relativeTime(item.createdAt)}</small></strong><p>{item.body}</p></div></article>)}<form onSubmit={(event) => { event.preventDefault(); if (!comment.trim()) return; actions.addComment(file.id, comment.trim()); setComment(''); }}><input className="input" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add encrypted comment…" /><button className="icon-button" aria-label="Send comment"><UploadSimple size={18} weight="light" /></button></form></section>
+        <section className="inspector-section inspector-comments"><header><h3><ChatCircle size={18} weight="light" /> Encrypted comments ({comments.length})</h3></header>{comments.map((item) => <article key={item.id}><span>{item.author.slice(0, 1)}</span><div><strong>{item.author}<small>{relativeTime(item.createdAt)}</small></strong><p>{item.body}</p></div></article>)}<form onSubmit={(event) => { event.preventDefault(); submitComment(); }}><input className="input" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add encrypted comment…" disabled={busy} /><button className="icon-button" aria-label="Send comment" disabled={busy || !comment.trim()}><UploadSimple size={18} weight="light" /></button></form></section>
       </aside>
       <Modal open={Boolean(preview)} onClose={() => { if (preview?.url) URL.revokeObjectURL(preview.url); setPreview(null); }} title={`Private preview · ${file.name}`} wide>
         <div className="decrypted-preview">

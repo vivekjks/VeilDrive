@@ -34,7 +34,7 @@ export const ProofsPage = () => {
     setProofBusy(true);
     setProofError('');
     try {
-      const activeRequest = actions.createProofRequest(title.trim(), condition.trim(), hiddenFields.filter(Boolean));
+      const activeRequest = await actions.createProofRequest(title.trim(), condition.trim(), hiddenFields.filter(Boolean));
       const result = await actions.generateProof(activeRequest.id, activeRequest);
       setProofCommitment(result);
       setProofOpen(true);

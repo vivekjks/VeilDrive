@@ -29,7 +29,7 @@ export const ActivityPage = () => {
     setProofBusy(true);
     setProofError('');
     try {
-      const request = actions.createProofRequest(
+      const request = await actions.createProofRequest(
         'Authorized access audit',
         `${authorized} of ${state.audit.length} committed events were authorized`,
         ['Actor identities', 'Credential values', 'Other file activity'],
