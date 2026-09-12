@@ -36,7 +36,7 @@ export const DrivePage = () => {
     let items = state.items.filter((item) => !item.trashed && !item.workspaceId && !item.dataRoomId);
     if (query) items = items.filter((item) => `${item.name} ${item.tags.join(' ')}`.toLowerCase().includes(query));
     else if (folderId) items = items.filter((item) => item.parentId === folderId);
-    else items = items.filter((item) => item.parentId === null || item.kind === 'file');
+    else items = items.filter((item) => item.parentId === null);
     if (filter === 'folders') items = items.filter((item) => item.kind === 'folder');
     if (filter === 'recent') items = items.filter((item) => item.kind === 'file');
     if (filter === 'starred') items = items.filter((item) => item.favorite);
@@ -70,7 +70,7 @@ export const DrivePage = () => {
           <div className="drive-heading__actions"><Button tone="secondary" onClick={() => setFolderOpen(true)} trailing={false}><Plus size={17} weight="light" /> New folder</Button><Button tone="primary" onClick={() => setUploadOpen(true)} trailing={<CaretDown size={14} weight="light" />}><UploadSimple size={17} weight="light" /> Upload</Button></div>
         </header>
 
-        <div className="storage-strip bezel"><div className="bezel__core"><div className="storage-meter"><strong>{state.items.filter((item) => item.kind === 'file' && !item.trashed).length}</strong><i style={{ transform: `scaleX(${state.items.length ? 1 : 0})` }} /></div><div><span>{formatBytes(totalBytes)} <small>encrypted locally</small></span><p><i className="status-dot" /> Preprod registry</p></div><div className="storage-fact"><strong>Client-side encrypted</strong><span>Readable bytes stay on this device.</span></div><div className="storage-fact"><strong>On-chain commitments</strong><span>{state.versions.length} registered versions.</span></div></div></div>
+        <div className="storage-strip bezel"><div className="bezel__core"><div className="storage-meter"><strong>{state.items.filter((item) => item.kind === 'file' && !item.trashed).length}</strong></div><div><span>{formatBytes(totalBytes)} <small>encrypted locally</small></span><p><i className="status-dot" /> Preprod registry</p></div><div className="storage-fact"><strong>Client-side encrypted</strong><span>Readable bytes stay on this device.</span></div><div className="storage-fact"><strong>On-chain commitments</strong><span>{state.versions.length} registered versions.</span></div></div></div>
         {actionError && <p className="form-error" role="alert">{actionError}</p>}
 
         {folderId && <div className="breadcrumbs"><button onClick={() => setFolderId(null)}>My drive</button><CaretRight size={13} weight="light" /><span>{parentFolder?.name}</span></div>}
@@ -96,7 +96,7 @@ export const DrivePage = () => {
       {selected && <FileInspector file={selected} onClose={() => setSelectedId(null)} onShare={() => setShareFile(selected)} />}
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} parentId={folderId} onComplete={setSelectedId} />
       <ShareModal file={shareFile} onClose={() => setShareFile(null)} />
-      <Modal open={folderOpen} onClose={() => !creatingFolder && setFolderOpen(false)} title="Create a private folder"><form className="simple-form" onSubmit={(event) => { event.preventDefault(); createFolder(); }}><label className="field"><span>Folder name</span><input autoFocus className="input" value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder="e.g. Legal review" /></label>{actionError && <p className="form-error" role="alert">{actionError}</p>}<footer className="modal-actions"><Button tone="quiet" trailing={false} type="button" onClick={() => setFolderOpen(false)} disabled={creatingFolder}>Cancel</Button><Button tone="primary" type="submit" disabled={creatingFolder || !folderName.trim()}>{creatingFolder ? 'Committing…' : 'Create folder'}</Button></footer></form></Modal>
+      <Modal open={folderOpen} onClose={() => !creatingFolder && setFolderOpen(false)} title="Create a private folder"><form className="simple-form" onSubmit={(event) => { event.preventDefault(); createFolder(); }}><label className="field"><span>Folder name</span><input autoFocus className="input" value={folderName} onChange={(event) => setFolderName(event.target.value)} /></label>{actionError && <p className="form-error" role="alert">{actionError}</p>}<footer className="modal-actions"><Button tone="quiet" trailing={false} type="button" onClick={() => setFolderOpen(false)} disabled={creatingFolder}>Cancel</Button><Button tone="primary" type="submit" disabled={creatingFolder || !folderName.trim()}>{creatingFolder ? 'Committing…' : 'Create folder'}</Button></footer></form></Modal>
     </div>
   );
 };

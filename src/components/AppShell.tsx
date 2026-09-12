@@ -93,7 +93,6 @@ export const AppShell = () => {
         <form className="global-search" onSubmit={submitSearch}>
           <MagnifyingGlass size={19} weight="light" />
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search files, proofs, people…" aria-label="Search" />
-          <kbd>⌘ K</kbd>
         </form>
         <div className="topbar__actions">
           <span className="network-pill"><span className="status-dot" /> Preprod</span>
@@ -122,6 +121,7 @@ export const AppShell = () => {
               <div><strong>{notice.title}</strong><p>{notice.body}</p><small>{relativeTime(notice.createdAt)}</small></div>
             </article>
           ))}
+          {!state.notifications.length && <div className="empty-state"><Bell size={36} weight="thin" /><p>No notifications yet.</p></div>}
         </div>
         <button className="text-action" onClick={actions.markNotificationsRead}>Mark all as read</button>
       </aside>

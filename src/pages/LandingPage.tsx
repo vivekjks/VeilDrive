@@ -39,7 +39,7 @@ export const LandingPage = () => {
         displayName: 'Private member',
         avatarInitials: 'PM',
       });
-      navigate('/drive');
+      navigate('/settings');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not connect to the Midnight wallet.');
     } finally {
@@ -79,9 +79,9 @@ export const LandingPage = () => {
           <Reveal delay={160} className="landing-hero__visual">
             <div className="hero-image-frame"><img src="/assets/veil-core.png" alt="A translucent obsidian veil protecting a luminous encrypted core" /></div>
             <article className="proof-card">
-              <header><span><i className="status-dot" /> ZK proof</span><strong>Valid</strong></header>
-              <p>Access authorized without revealing your private credential.</p>
-              <footer>Verified on Midnight <ShieldCheck size={18} weight="light" /></footer>
+              <header><span><i className="status-dot" /> Private proof</span><strong>Midnight</strong></header>
+              <p>Credential values remain private during authorization.</p>
+              <footer>Commitments only <ShieldCheck size={18} weight="light" /></footer>
             </article>
           </Reveal>
           <div className="hero-footnote"><span>Privacy owns a brighter tomorrow.</span><span>Encrypt — control — share with confidence</span></div>
@@ -106,7 +106,7 @@ export const LandingPage = () => {
           <Reveal delay={120} className="architecture-flow">
             <div><span>01</span><strong>Your device</strong><p>Generate a key, encrypt the file and its metadata, calculate the commitment.</p></div>
             <ArrowRight size={30} weight="thin" />
-            <div><span>02</span><strong>Encrypted storage</strong><p>Persist opaque blobs through a provider abstraction—local, object, or decentralized.</p></div>
+            <div><span>02</span><strong>Encrypted storage</strong><p>Persist opaque blobs in the browser’s encrypted local vault.</p></div>
             <ArrowRight size={30} weight="thin" />
             <div><span>03</span><strong>Midnight preprod</strong><p>Register proofs, private ownership, policies, grants, use, and revocation.</p></div>
           </Reveal>

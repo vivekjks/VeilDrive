@@ -115,7 +115,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     loadEncryptedAppState()
       .then((stored) => {
         if (!active) return;
-        if (stored) dispatch(() => ({ ...createInitialState(), ...stored, storageProvider: 'indexeddb', session: { ...createInitialState().session, ...stored.session } }));
+        if (stored) dispatch(() => ({ ...createInitialState(), ...stored, storageProvider: 'indexeddb', session: { ...createInitialState().session, ...stored.session, connected: false } }));
       })
       .finally(() => active && setReady(true));
     return () => { active = false; };
