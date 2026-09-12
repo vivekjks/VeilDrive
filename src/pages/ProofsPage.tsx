@@ -1,7 +1,7 @@
 import { Check, FileArrowUp, LockKey, ShieldCheck } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
 import { Button } from '../components/Button';
-import { hashBlob } from '../lib/crypto';
+import { commitmentForBlob, hashBlob } from '../lib/crypto';
 import { shortHash } from '../lib/encoding';
 import { formatDate } from '../lib/format';
 import { verifyFileOnMidnight } from '../lib/midnight-contract';
@@ -22,10 +22,14 @@ export const ProofsPage = () => {
   const verify = async (file: File) => {
     setChecking(true);
     try {
-      const commitment = await hashBlob(file);
-      const matched = state.versions.find((version) => version.commitment === commitment);
+      let commitment = '';
+      let matched: (typeof state.versions)[number] | undefined;
+      for (const version of state.versions) {
+        const candidate = version.commitmentSalt ? await commitmentForBlob(file, version.commitmentSalt) : await hashBlob(file);
+        if (candidate === version.commitment) { commitment = candidate; matched = version; break; }
+      }
       if (!matched) {
-        setVerification({ fileName: file.name, commitment, match: false });
+        setVerification({ fileName: file.name, commitment: await hashBlob(file), match: false });
         return;
       }
       const transactionId = await verifyFileOnMidnight(matched.fileId, commitment);

@@ -26,6 +26,7 @@ export interface EncryptedVersion {
   metadataIv: string;
   metadataCipher: string;
   commitment: string;
+  commitmentSalt?: string;
   size: number;
   createdAt: string;
   createdBy: string;

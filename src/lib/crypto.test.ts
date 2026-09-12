@@ -26,4 +26,12 @@ describe('client-side encrypted vault', () => {
     expect(await verifyBlobAgainstCommitment(original, commitment)).toBe(true);
     expect(await verifyBlobAgainstCommitment(modified, commitment)).toBe(false);
   });
+
+  it('salts registered file commitments to prevent plaintext guessing', async () => {
+    const source = new Blob(['low entropy']);
+    const first = await encryptBlob(source, 'one', 1, 'owner', {});
+    const second = await encryptBlob(source, 'two', 1, 'owner', {});
+    expect(first.commitment).not.toBe(second.commitment);
+    expect(await verifyBlobAgainstCommitment(source, first.commitment, first.commitmentSalt)).toBe(true);
+  });
 });

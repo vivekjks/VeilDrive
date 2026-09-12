@@ -25,6 +25,15 @@ export const sha256 = async (data: ArrayBuffer | Uint8Array | string): Promise<s
 
 export const hashBlob = async (blob: Blob): Promise<string> => sha256(await blob.arrayBuffer());
 
+export const commitmentForBlob = async (blob: Blob, saltBase64: string): Promise<string> => {
+  const salt = base64ToBytes(saltBase64);
+  const plaintext = new Uint8Array(await blob.arrayBuffer());
+  const salted = new Uint8Array(salt.length + plaintext.length);
+  salted.set(salt);
+  salted.set(plaintext, salt.length);
+  return sha256(salted);
+};
+
 export const encryptBlob = async (
   blob: Blob,
   fileId: string,
@@ -33,7 +42,8 @@ export const encryptBlob = async (
   metadata: Record<string, unknown>,
 ): Promise<EncryptedVersion> => {
   const plaintext = await blob.arrayBuffer();
-  const commitment = await sha256(plaintext);
+  const commitmentSalt = bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
+  const commitment = await commitmentForBlob(blob, commitmentSalt);
   const fileKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   const wrappingKey = await masterWrappingKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -57,6 +67,7 @@ export const encryptBlob = async (
     metadataIv: bytesToBase64(metadataIv),
     metadataCipher: bytesToBase64(metadataCipher),
     commitment,
+    commitmentSalt,
     size: blob.size,
     createdAt: new Date().toISOString(),
     createdBy,
@@ -130,5 +141,5 @@ export const encryptUpload = async (
   };
 };
 
-export const verifyBlobAgainstCommitment = async (blob: Blob, commitment: string): Promise<boolean> =>
-  (await hashBlob(blob)) === commitment;
+export const verifyBlobAgainstCommitment = async (blob: Blob, commitment: string, saltBase64?: string): Promise<boolean> =>
+  (saltBase64 ? await commitmentForBlob(blob, saltBase64) : await hashBlob(blob)) === commitment;
