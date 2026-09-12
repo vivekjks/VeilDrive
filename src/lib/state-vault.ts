@@ -60,6 +60,47 @@ export const clearEncryptedAppState = (): void => {
   localStorage.removeItem(ORPHANED_STATE_KEY);
 };
 
+const walletUnlockCacheKey = async (networkId: string, walletAddress: string): Promise<string> => {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    encoder.encode(`veildrive:wallet-unlock:${networkId}:${walletAddress}`),
+  );
+  return `wallet-unlock:${bytesToBase64(new Uint8Array(digest))}`;
+};
+
+export const loadWalletUnlockSeed = async (networkId: string, walletAddress: string): Promise<string | null> => {
+  const blobKey = await walletUnlockCacheKey(networkId, walletAddress);
+  const envelope = await getEncryptedBlob(blobKey);
+  const key = await getVaultKey(STATE_CRYPTO_KEY);
+  if (!envelope || !key || envelope.byteLength <= 12) return null;
+  try {
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: envelope.slice(0, 12), additionalData: encoder.encode(blobKey) },
+      key,
+      envelope.slice(12),
+    );
+    const seed = new TextDecoder().decode(plaintext);
+    return /^[0-9a-f]{64}$/i.test(seed) ? seed : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveWalletUnlockSeed = async (networkId: string, walletAddress: string, seed: string): Promise<void> => {
+  if (!/^[0-9a-f]{64}$/i.test(seed)) throw new Error('Wallet unlock seed must be 32 bytes.');
+  const blobKey = await walletUnlockCacheKey(networkId, walletAddress);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: encoder.encode(blobKey) },
+    await getStateKey(),
+    encoder.encode(seed),
+  );
+  const envelope = new Uint8Array(iv.length + ciphertext.byteLength);
+  envelope.set(iv);
+  envelope.set(new Uint8Array(ciphertext), iv.length);
+  await putEncryptedBlob(blobKey, envelope.buffer);
+};
+
 export interface PrivateRecordOpening {
   recordId: string;
   recordType: string;

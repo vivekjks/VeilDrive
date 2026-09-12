@@ -36,7 +36,7 @@ VeilDrive is designed for teams and individuals handling sensitive documents: le
 
 ### End-to-end user flow
 
-1. Connect a funded 1AM or Lace wallet on Midnight preprod.
+1. Connect a funded 1AM or Lace wallet on Midnight preprod. The first connection asks for one private-state unlock signature; later visits recover its device-encrypted seed after reconnecting the same wallet.
 2. Join the canonical VeilDrive registry, or deploy a separate registry for an isolated organization.
 3. Upload a file. The browser encrypts its bytes and metadata and stores only ciphertext in the configured encrypted storage provider.
 4. Approve the wallet transaction. The Compact contract records the owner-bound commitment and version state.

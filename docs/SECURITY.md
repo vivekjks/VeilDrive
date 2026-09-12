@@ -5,6 +5,7 @@
 - File bytes and readable metadata are encrypted before persistence.
 - Each version uses a fresh content key and fresh AES-GCM IVs.
 - The device wrapping key is unexportable and stored using IndexedDB structured cloning.
+- The wallet-derived private-state unlock seed is encrypted under that device key after the first approved signature.
 - Contract private witnesses are encrypted at rest by the Midnight level private-state provider.
 - File, grant, credential, policy, and audit identifiers are domain-separated before Compact calls.
 - A failed or ambiguous preprod registration keeps the ciphertext locally so a transport timeout cannot destroy the only encrypted copy.

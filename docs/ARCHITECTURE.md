@@ -32,7 +32,7 @@ Version updates follow the same transaction shape. Local encrypted bytes are ret
 
 ## Identity and access
 
-The wallet’s payment/address surface is not used as a Compact identity. VeilDrive deterministically unlocks an encrypted private witness using `signData`, derives `identityCommitment(secretKey)`, and exposes that value as the user’s **Veil ID**. Direct grants target this 32-byte identity commitment.
+The wallet’s payment/address surface is not used as a Compact identity. On first use, VeilDrive deterministically unlocks a private witness using `signData`, stores the derived seed under the device's non-exportable vault key, derives `identityCommitment(secretKey)`, and exposes that value as the user’s **Veil ID**. Returning sessions reconnect the same wallet and recover the encrypted device-bound seed without creating another wallet signature request. Direct grants target this 32-byte identity commitment.
 
 Team sharing creates a credential policy. Policy grants compare the credential’s claim commitment with the policy’s required-claim commitment and verify that the connected private witness belongs to the credential holder. Expiry, revocation, and one-time consumption are enforced by contract circuits.
 

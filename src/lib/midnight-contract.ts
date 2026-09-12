@@ -26,7 +26,7 @@ import type { Permission } from '../types';
 import { bytesToHex, hexToBytes } from './encoding';
 import { sha256 } from './crypto';
 import { PREPROD, readableMidnightError, type WalletConnection } from './midnight';
-import { savePrivateRecordOpening } from './state-vault';
+import { loadWalletUnlockSeed, savePrivateRecordOpening, saveWalletUnlockSeed } from './state-vault';
 
 export const VEIL_PRIVATE_STATE_ID = 'veilDrivePrivateState' as const;
 
@@ -90,6 +90,14 @@ const deriveWalletSecrets = async (connection: WalletConnection) => {
     'balanceUnsealedTransaction',
     'submitTransaction',
   ]).catch(() => undefined);
+  const cachedDigest = await loadWalletUnlockSeed(PREPROD.networkId, connection.walletAddress);
+  if (cachedDigest) {
+    const claims = await sha256(`veildrive:claims:empty:${connection.walletAddress}`);
+    return {
+      password: `Vd!9-${cachedDigest}`,
+      privateState: createVeilDrivePrivateState(hexToBytes(cachedDigest), hexToBytes(claims)),
+    };
+  }
   let signed: Awaited<ReturnType<typeof connection.api.signData>>;
   try {
     signed = await connection.api.signData(
@@ -98,10 +106,11 @@ const deriveWalletSecrets = async (connection: WalletConnection) => {
     );
   } catch (reason) {
     const message = reason instanceof Error ? reason.message : '';
-    if (/timeout|pending|duplicate|request failed/i.test(message)) throw new Error('Approve or reject the pending VeilDrive private-state signature in your wallet, then try again.');
+    if (/timeout|pending|duplicate|request failed/i.test(message)) throw new Error('Open your wallet and complete the existing VeilDrive private-state unlock request. Return here and select Connect once more.');
     throw reason;
   }
   const digest = await sha256(`${signed.verifyingKey}:${signed.signature}`);
+  await saveWalletUnlockSeed(PREPROD.networkId, connection.walletAddress, digest);
   const claims = await sha256(`veildrive:claims:empty:${connection.walletAddress}`);
   return {
     password: `Vd!9-${digest}`,

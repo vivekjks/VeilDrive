@@ -2,7 +2,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInitialState } from '../store/initial-state';
 import { clearVaultDatabase } from './indexed-db';
-import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from './state-vault';
+import {
+  clearEncryptedAppState,
+  loadEncryptedAppState,
+  loadWalletUnlockSeed,
+  saveEncryptedAppState,
+  saveWalletUnlockSeed,
+} from './state-vault';
 
 describe('encrypted application state', () => {
   beforeEach(async () => {
@@ -43,5 +49,15 @@ describe('encrypted application state', () => {
     await expect(loadEncryptedAppState()).resolves.toBeNull();
     expect(localStorage.getItem('veildrive-encrypted-app-state-v1')).toBeNull();
     expect(localStorage.getItem('veildrive-encrypted-app-state-v1-orphaned')).toBe(orphaned);
+  });
+
+  it('restores a device-bound wallet unlock without storing it in localStorage', async () => {
+    const seed = 'ab'.repeat(32);
+    await saveWalletUnlockSeed('preprod', 'mn_shield-addr_test', seed);
+
+    const localValues = Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!));
+    expect(localValues.join('')).not.toContain(seed);
+    await expect(loadWalletUnlockSeed('preprod', 'mn_shield-addr_test')).resolves.toBe(seed);
+    await expect(loadWalletUnlockSeed('preprod', 'another-wallet')).resolves.toBeNull();
   });
 });
