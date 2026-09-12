@@ -24,7 +24,7 @@ import { decryptVersion, encryptBlob, encryptUpload, sha256 } from '../lib/crypt
 import { clearVaultDatabase, deleteEncryptedBlob } from '../lib/indexed-db';
 import { base64ToBytes, bytesToBase64, randomId } from '../lib/encoding';
 import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from '../lib/state-vault';
-import { disconnectMidnightWallet } from '../lib/midnight';
+import { connectMidnightWallet, disconnectMidnightWallet, getWalletConnection, PREPROD } from '../lib/midnight';
 
 const loadMidnightContract = () => import('../lib/midnight-contract');
 
@@ -64,6 +64,12 @@ const auditEvent = (
 
 interface AppActions {
   connect: (session: Partial<Session>) => void;
+  openRegistry: (contractAddress?: string) => Promise<{
+    walletName: string;
+    walletAddress: string;
+    contractAddress: string;
+    identityCommitment: string;
+  }>;
   disconnect: () => Promise<void>;
   upload: (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => Promise<UploadResult[]>;
   retryPendingFileWrite: (fileId: string) => Promise<void>;
@@ -159,6 +165,41 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     clearMidnightContractSession();
     dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
   }, []);
+
+  const openRegistry = useCallback(async (contractAddress = state.session.contractAddress ?? PREPROD.registry) => {
+    const address = contractAddress.trim().replace(/^0x/i, '');
+    if (!/^[0-9a-f]{64}$/i.test(address)) throw new Error('Enter a valid Midnight contract address.');
+    if (state.items.length && state.session.contractAddress && state.session.contractAddress !== address) {
+      throw new Error('This vault contains files registered to another contract. Use a separate browser profile for a different registry.');
+    }
+
+    try {
+      const wallet = getWalletConnection() ?? await connectMidnightWallet();
+      if (state.session.walletAddress && state.session.walletAddress !== wallet.walletAddress) {
+        throw new Error('This local vault belongs to another wallet. Reconnect its original wallet or use a separate browser profile for the new account.');
+      }
+
+      const contract = await loadMidnightContract();
+      const active = contract.getMidnightContractSession();
+      const registry = active?.contractAddress === address
+        ? active
+        : await contract.joinVeilDriveContract(wallet, address);
+
+      connect({
+        mode: 'preprod',
+        walletAddress: wallet.walletAddress,
+        contractAddress: registry.contractAddress,
+        veilId: registry.identityCommitment,
+      });
+      return { ...registry, walletName: wallet.walletName, walletAddress: wallet.walletAddress };
+    } catch (error) {
+      disconnectMidnightWallet();
+      const { clearMidnightContractSession } = await loadMidnightContract();
+      clearMidnightContractSession();
+      dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
+      throw error;
+    }
+  }, [connect, state.items.length, state.session.contractAddress, state.session.walletAddress]);
 
   const upload = useCallback(async (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => {
     const results: UploadResult[] = [];
@@ -677,12 +718,12 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   }, []);
 
   const actions = useMemo<AppActions>(() => ({
-    connect, disconnect, upload, retryPendingFileWrite, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
+    connect, openRegistry, disconnect, upload, retryPendingFileWrite, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
     deleteForever, rename, addTags, share, revokeGrant, proveGrant, consumeGrant, addComment, resolveAccessRequest,
     createAccessRequest, addWorkspace, createDataRoom, inviteToDataRoom, updateMember, addMember, issueCredential, exportCredential, importCredential, revokeCredential,
     addGuardian, markNotificationsRead, setStorageProvider, toggleSidebar, resetVault,
   }), [
-    addComment, addGuardian, addMember, addTags, addVersion, addWorkspace, connect, createAccessRequest,
+    addComment, addGuardian, addMember, addTags, addVersion, addWorkspace, connect, openRegistry, createAccessRequest,
     createDataRoom, createFolder, deleteForever, disconnect, download,
     exportCredential, importCredential, inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetVault, resolveAccessRequest, restore,
     revokeCredential, revokeGrant, proveGrant, setStorageProvider, share,

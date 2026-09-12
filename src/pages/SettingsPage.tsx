@@ -15,7 +15,6 @@ import { shortHash } from '../lib/encoding';
 import {
   deployVeilDriveContract,
   getMidnightContractSession,
-  joinVeilDriveContract,
 } from '../lib/midnight-contract';
 import {
   checkPreprodHealth,
@@ -56,19 +55,21 @@ export const SettingsPage = () => {
     const existing = getWalletConnection();
     if (existing) return existing;
     const wallet = await connectMidnightWallet();
-    actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress });
+    if (state.session.walletAddress && state.session.walletAddress !== wallet.walletAddress) {
+      throw new Error('This local vault belongs to another wallet. Reconnect its original wallet or use a separate browser profile for the new account.');
+    }
     return wallet;
   };
 
   const reconnect = async () => {
     setBusy('connect');
-    setMessage('');
+    setMessage('Connecting the wallet and opening your saved registry…');
     try {
-      const wallet = await connectMidnightWallet();
-      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress });
-      setMessage(`${wallet.walletName} is connected to Midnight preprod.`);
+      const result = await actions.openRegistry(state.session.contractAddress ?? contractInput);
+      setContractInput(result.contractAddress);
+      setMessage(`${result.walletName} is connected. The preprod registry is ready.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not connect to a Midnight wallet.');
+      setMessage(error instanceof Error ? error.message : 'Could not open the Midnight registry.');
     } finally {
       setBusy(null);
     }
@@ -102,9 +103,7 @@ export const SettingsPage = () => {
     setBusy('join');
     setMessage('Locating the contract and validating its verifier keys…');
     try {
-      const wallet = await connect();
-      const result = await joinVeilDriveContract(wallet, contractInput);
-      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress, contractAddress: result.contractAddress, veilId: result.identityCommitment });
+      const result = await actions.openRegistry(contractInput);
       setMessage(`Contract verified and joined. Your private Veil ID is ${shortHash(result.identityCommitment)}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not join that contract.');
@@ -149,7 +148,7 @@ export const SettingsPage = () => {
               </span>
             </span>
             <Button tone="primary" onClick={reconnect} disabled={busy !== null}>
-              <Wallet size={16} /> {busy === 'connect' ? 'Waiting for wallet…' : state.session.connected ? 'Reconnect wallet' : 'Connect wallet'}
+              <Wallet size={16} /> {busy === 'connect' ? 'Opening registry…' : runtimeSession ? 'Registry ready' : 'Connect & open registry'}
             </Button>
           </div>
           <div className="deployment-panel">

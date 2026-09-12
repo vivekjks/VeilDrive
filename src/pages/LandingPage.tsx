@@ -13,7 +13,7 @@ import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { Modal } from '../components/Modal';
 import { Reveal } from '../components/Reveal';
-import { checkPreprodHealth, connectMidnightWallet, PREPROD } from '../lib/midnight';
+import { checkPreprodHealth, PREPROD } from '../lib/midnight';
 import { useAppStore } from '../store/AppStore';
 import './LandingPage.css';
 
@@ -32,14 +32,8 @@ export const LandingPage = () => {
     setConnecting(true);
     setError('');
     try {
-      const connection = await connectMidnightWallet();
-      actions.connect({
-        mode: 'preprod',
-        walletAddress: connection.walletAddress,
-        displayName: 'Private member',
-        avatarInitials: 'PM',
-      });
-      navigate('/settings');
+      await actions.openRegistry(state.session.contractAddress ?? PREPROD.registry);
+      navigate('/drive');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not connect to the Midnight wallet.');
     } finally {
@@ -119,7 +113,7 @@ export const LandingPage = () => {
           <p className="connect-intro">Connect a DApp Connector v4 wallet on Midnight preprod.</p>
           <button className="connect-option" onClick={connectWallet} disabled={connecting}>
             <span className="connect-option__icon"><Wallet size={26} weight="light" /></span>
-            <span><strong>{connecting ? 'Waiting for wallet…' : 'Connect Lace or 1AM'}</strong><small>Authorize private state and preprod transactions.</small></span>
+            <span><strong>{connecting ? 'Opening your registry…' : 'Connect Lace or 1AM'}</strong><small>Connect, unlock private state, and open your preprod registry.</small></span>
             <ArrowRight size={18} weight="light" />
           </button>
           {error && <div className="connect-error"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Lace</a><a href="https://1am.xyz/" target="_blank" rel="noreferrer">1AM</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
