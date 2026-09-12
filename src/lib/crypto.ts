@@ -1,5 +1,4 @@
 import type { DriveItem, EncryptedVersion, UploadResult } from '../types';
-import { demoContents } from '../store/fixtures';
 import { base64ToBytes, bytesToBase64, bytesToHex, randomId } from './encoding';
 import { getEncryptedBlob, getVaultKey, putEncryptedBlob, putVaultKey } from './indexed-db';
 
@@ -129,26 +128,6 @@ export const encryptUpload = async (
     },
     version,
   };
-};
-
-export const initializeDemoFiles = async (items: DriveItem[], versions: EncryptedVersion[]): Promise<UploadResult[]> => {
-  const existing = new Set(versions.map((version) => version.fileId));
-  const pending = items.filter((item) => item.kind === 'file' && !existing.has(item.id));
-  return Promise.all(
-    pending.map(async (item) => {
-      const content = demoContents[item.id] ?? `Encrypted demo content for ${item.name}.`;
-      const blob = new Blob([content], { type: item.mimeType });
-      const version = await encryptBlob(blob, item.id, 1, item.ownerId, {
-        name: item.name,
-        type: item.mimeType,
-        size: item.size,
-      });
-      return {
-        item: { ...item, versionIds: [version.id], currentVersionId: version.id },
-        version,
-      };
-    }),
-  );
 };
 
 export const verifyBlobAgainstCommitment = async (blob: Blob, commitment: string): Promise<boolean> =>

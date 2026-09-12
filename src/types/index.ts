@@ -1,4 +1,4 @@
-export type NetworkMode = 'demo' | 'preprod';
+export type NetworkMode = 'preprod';
 export type PrivacyLevel = 'standard' | 'private' | 'confidential' | 'maximum';
 export type Permission = 'view' | 'download' | 'edit' | 'reshare';
 export type FileKind = 'file' | 'folder';
@@ -13,6 +13,7 @@ export interface Session {
   avatarInitials: string;
   network: 'preprod';
   contractAddress?: string;
+  veilId?: string;
 }
 
 export interface EncryptedVersion {
@@ -91,6 +92,7 @@ export interface Member {
   id: string;
   name: string;
   wallet: string;
+  veilId?: string;
   role: MemberRole;
   department: string;
   status: 'active' | 'invited' | 'revoked';

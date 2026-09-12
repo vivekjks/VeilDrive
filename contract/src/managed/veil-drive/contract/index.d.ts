@@ -62,6 +62,15 @@ export type ImpureCircuits<PS> = {
   verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    eventId_0: bigint,
                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      recordType_0: Uint8Array,
+                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type ProvableCircuits<PS> = {
@@ -121,6 +130,15 @@ export type ProvableCircuits<PS> = {
   verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    eventId_0: bigint,
                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      recordType_0: Uint8Array,
+                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type PureCircuits = {
@@ -193,6 +211,15 @@ export type Circuits<PS> = {
   verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    eventId_0: bigint,
                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      recordType_0: Uint8Array,
+                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
+                      recordId_0: Uint8Array,
+                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type Ledger = {
@@ -287,11 +314,29 @@ export type Ledger = {
                            };
     [Symbol.iterator](): Iterator<[bigint, { fileId: Uint8Array, eventCommitment: Uint8Array, authorized: boolean }]>
   };
+  privateRecords: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(key_0: Uint8Array): boolean;
+    lookup(key_0: Uint8Array): { owner: Uint8Array,
+                                 recordType: Uint8Array,
+                                 commitment: Uint8Array,
+                                 version: bigint,
+                                 active: boolean
+                               };
+    [Symbol.iterator](): Iterator<[Uint8Array, { owner: Uint8Array,
+  recordType: Uint8Array,
+  commitment: Uint8Array,
+  version: bigint,
+  active: boolean
+}]>
+  };
   readonly fileCount: bigint;
   readonly grantCount: bigint;
   readonly credentialCount: bigint;
   readonly policyCount: bigint;
   readonly auditCount: bigint;
+  readonly privateRecordCount: bigint;
 }
 
 export type ContractReferenceLocations = any;

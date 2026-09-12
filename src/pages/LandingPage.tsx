@@ -1,7 +1,6 @@
 import {
   ArrowDown,
   ArrowRight,
-  Check,
   Fingerprint,
   Key,
   LockKey,
@@ -29,17 +28,7 @@ export const LandingPage = () => {
 
   useEffect(() => { checkPreprodHealth().then(setHealth).catch(() => undefined); }, []);
 
-  const enterDemo = () => {
-    actions.connect({
-      mode: 'demo',
-      walletAddress: 'mn_addr_preprod1demo7e2f',
-      displayName: 'Alice Chen',
-      avatarInitials: 'AC',
-    });
-    navigate('/drive');
-  };
-
-  const connectLace = async () => {
+  const connectWallet = async () => {
     setConnecting(true);
     setError('');
     try {
@@ -52,7 +41,7 @@ export const LandingPage = () => {
       });
       navigate('/drive');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not connect to Lace.');
+      setError(reason instanceof Error ? reason.message : 'Could not connect to the Midnight wallet.');
     } finally {
       setConnecting(false);
     }
@@ -124,7 +113,7 @@ export const LandingPage = () => {
         </section>
 
         <section className="landing-cta">
-          <Reveal><ShieldCheck size={42} weight="thin" /><h2>Private by default.<br />Useful by design.</h2><p>Open the complete VeilDrive workspace or connect a funded Lace wallet to use preprod.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Open VeilDrive</Button></Reveal>
+          <Reveal><ShieldCheck size={42} weight="thin" /><h2>Private by default.<br />Useful by design.</h2><p>Connect a funded Midnight wallet to create your private on-chain vault.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Open VeilDrive</Button></Reveal>
         </section>
       </main>
 
@@ -132,23 +121,18 @@ export const LandingPage = () => {
 
       <Modal open={connectOpen} onClose={() => setConnectOpen(false)} title="Enter your private drive">
         <div className="connect-panel">
-          <p className="connect-intro">Choose the preprod path. Both use the same encrypted vault and product flows.</p>
-          <button className="connect-option" onClick={connectLace} disabled={connecting}>
+          <p className="connect-intro">Connect a DApp Connector v4 wallet on Midnight preprod.</p>
+          <button className="connect-option" onClick={connectWallet} disabled={connecting}>
             <span className="connect-option__icon"><Wallet size={26} weight="light" /></span>
-            <span><strong>{connecting ? 'Waiting for Lace…' : 'Connect Lace wallet'}</strong><small>Sign preprod contract transactions with your wallet.</small></span>
+            <span><strong>{connecting ? 'Waiting for wallet…' : 'Connect Lace or 1AM'}</strong><small>Authorize private state and preprod transactions.</small></span>
             <ArrowRight size={18} weight="light" />
           </button>
-          <button className="connect-option" onClick={enterDemo}>
-            <span className="connect-option__icon"><ShieldCheck size={26} weight="light" /></span>
-            <span><strong>Explore the complete demo</strong><small>Test every feature with a local encrypted vault.</small></span>
-            <ArrowRight size={18} weight="light" />
-          </button>
-          {error && <div className="connect-error"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Get Lace</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
+          {error && <div className="connect-error"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Lace</a><a href="https://1am.xyz/" target="_blank" rel="noreferrer">1AM</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
           <div className="health-row">
             <span className={health.indexer ? 'is-online' : ''}><i /> Preprod indexer</span>
             <span className={health.proofServer ? 'is-online' : ''}><i /> Local proof server</span>
           </div>
-          <p className="connect-note"><Check size={14} weight="light" /> Demo data never leaves this browser. Lace witness data is sent only to your configured local proof server.</p>
+          <p className="connect-note">Files stay encrypted on this device. Private witness data is used only for proof generation.</p>
         </div>
       </Modal>
     </div>

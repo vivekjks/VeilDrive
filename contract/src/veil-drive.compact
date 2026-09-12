@@ -46,6 +46,16 @@ struct AuditEntry {
   authorized: Boolean
 }
 
+// Generic private application records anchor encrypted off-chain state without
+// publishing names, comments, membership details, recovery data, or API labels.
+struct PrivateRecord {
+  owner: Bytes<32>,
+  recordType: Bytes<32>,
+  commitment: Bytes<32>,
+  version: Uint<32>,
+  active: Boolean
+}
+
 export sealed ledger administrator: Bytes<32>;
 export ledger issuers: Set<Bytes<32>>;
 export ledger files: Map<Bytes<32>, FileEntry>;
@@ -53,11 +63,13 @@ export ledger grants: Map<Bytes<32>, AccessGrant>;
 export ledger credentials: Map<Bytes<32>, CredentialRecord>;
 export ledger policies: Map<Bytes<32>, AccessPolicy>;
 export ledger auditEvents: Map<Uint<64>, AuditEntry>;
+export ledger privateRecords: Map<Bytes<32>, PrivateRecord>;
 export ledger fileCount: Counter;
 export ledger grantCount: Counter;
 export ledger credentialCount: Counter;
 export ledger policyCount: Counter;
 export ledger auditCount: Counter;
+export ledger privateRecordCount: Counter;
 
 witness localSecretKey(): Bytes<32>;
 witness localCredentialClaims(): Bytes<32>;
@@ -359,4 +371,62 @@ export circuit verifyAuditEvent(eventId: Uint<64>, expectedCommitment: Bytes<32>
   const entry = auditEvents.lookup(publicEventId);
   assert(entry.authorized, "audit event was not authorized");
   assert(entry.eventCommitment == disclose(expectedCommitment), "audit commitment mismatch");
+}
+
+export circuit commitPrivateRecord(
+  recordId: Bytes<32>,
+  recordType: Bytes<32>,
+  recordCommitment: Bytes<32>
+): Uint<32> {
+  const publicRecordId = disclose(recordId);
+  const owner = disclose(identityCommitment(localSecretKey()));
+  if (privateRecords.member(publicRecordId)) {
+    const current = privateRecords.lookup(publicRecordId);
+    assert(current.owner == owner, "private record owner authorization required");
+    assert(current.active, "private record revoked");
+    assert(current.recordType == disclose(recordType), "private record type cannot change");
+    const nextVersion = (current.version + 1) as Uint<32>;
+    privateRecords.insert(publicRecordId, PrivateRecord {
+      owner: current.owner,
+      recordType: current.recordType,
+      commitment: disclose(recordCommitment),
+      version: nextVersion,
+      active: true
+    });
+    return disclose(nextVersion);
+  } else {
+    privateRecords.insert(publicRecordId, PrivateRecord {
+      owner: owner,
+      recordType: disclose(recordType),
+      commitment: disclose(recordCommitment),
+      version: 1,
+      active: true
+    });
+    privateRecordCount.increment(1);
+    return 1;
+  }
+}
+
+export circuit revokePrivateRecord(recordId: Bytes<32>): [] {
+  const publicRecordId = disclose(recordId);
+  assert(privateRecords.member(publicRecordId), "private record not found");
+  const current = privateRecords.lookup(publicRecordId);
+  assert(current.owner == identityCommitment(localSecretKey()), "private record owner authorization required");
+  assert(current.active, "private record already revoked");
+  privateRecords.insert(publicRecordId, PrivateRecord {
+    owner: current.owner,
+    recordType: current.recordType,
+    commitment: current.commitment,
+    version: current.version,
+    active: false
+  });
+}
+
+export circuit verifyPrivateRecord(recordId: Bytes<32>, expectedCommitment: Bytes<32>): Uint<32> {
+  const publicRecordId = disclose(recordId);
+  assert(privateRecords.member(publicRecordId), "private record not found");
+  const record = privateRecords.lookup(publicRecordId);
+  assert(record.active, "private record revoked");
+  assert(record.commitment == disclose(expectedCommitment), "private record commitment mismatch");
+  return record.version;
 }

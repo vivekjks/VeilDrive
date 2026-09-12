@@ -15,6 +15,7 @@ describe('VeilDrive Compact contract', () => {
     expect(state.administrator).not.toEqual(admin.secretKey);
     expect(state.issuers.member(state.administrator)).toBe(true);
     expect(state.fileCount).toBe(0n);
+    expect(state.privateRecordCount).toBe(0n);
   });
 
   it('registers, versions, verifies, and revokes a commitment', () => {
@@ -94,5 +95,26 @@ describe('VeilDrive Compact contract', () => {
     expect(eventId).toBe(1n);
     expect(() => simulator.call('verifyAuditEvent', eventId, bytes(53))).not.toThrow();
     expect(() => simulator.call('verifyAuditEvent', eventId, bytes(54))).toThrow('audit commitment mismatch');
+  });
+
+  it('versions and revokes owner-authorized private application records', () => {
+    const owner = createVeilDrivePrivateState(bytes(60), bytes(61));
+    const other = createVeilDrivePrivateState(bytes(62), bytes(63));
+    const simulator = new VeilDriveSimulator(owner);
+    const recordId = bytes(64);
+    const recordType = bytes(65);
+
+    expect(simulator.call('commitPrivateRecord', recordId, recordType, bytes(66))).toBe(1n);
+    expect(simulator.call('commitPrivateRecord', recordId, recordType, bytes(67))).toBe(2n);
+    expect(simulator.call('verifyPrivateRecord', recordId, bytes(67))).toBe(2n);
+    expect(simulator.ledger().privateRecordCount).toBe(1n);
+
+    simulator.switchUser(other);
+    expect(() => simulator.call('commitPrivateRecord', recordId, recordType, bytes(68))).toThrow('private record owner authorization required');
+    expect(() => simulator.call('revokePrivateRecord', recordId)).toThrow('private record owner authorization required');
+
+    simulator.switchUser(owner);
+    simulator.call('revokePrivateRecord', recordId);
+    expect(() => simulator.call('verifyPrivateRecord', recordId, bytes(67))).toThrow('private record revoked');
   });
 });

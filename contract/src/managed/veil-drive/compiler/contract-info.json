@@ -538,6 +538,82 @@
         "types": [
         ]
       }
+    },
+    {
+      "name": "commitPrivateRecord",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "recordId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "recordType",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "recordCommitment",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 4294967295
+      }
+    },
+    {
+      "name": "revokePrivateRecord",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "recordId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "verifyPrivateRecord",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "recordId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "expectedCommitment",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 4294967295
+      }
     }
   ],
   "witnesses": [
@@ -837,32 +913,88 @@
       }
     },
     {
-      "name": "fileCount",
+      "name": "privateRecords",
       "index": 7,
       "exported": true,
-      "storage": "Counter"
+      "storage": "Map",
+      "key": {
+        "type-name": "Bytes",
+        "length": 32
+      },
+      "value": {
+        "type-name": "Struct",
+        "name": "PrivateRecord",
+        "elements": [
+          {
+            "name": "owner",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "recordType",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "commitment",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "version",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 4294967295
+            }
+          },
+          {
+            "name": "active",
+            "type": {
+              "type-name": "Boolean"
+            }
+          }
+        ]
+      }
     },
     {
-      "name": "grantCount",
+      "name": "fileCount",
       "index": 8,
       "exported": true,
       "storage": "Counter"
     },
     {
-      "name": "credentialCount",
+      "name": "grantCount",
       "index": 9,
       "exported": true,
       "storage": "Counter"
     },
     {
-      "name": "policyCount",
+      "name": "credentialCount",
       "index": 10,
       "exported": true,
       "storage": "Counter"
     },
     {
-      "name": "auditCount",
+      "name": "policyCount",
       "index": 11,
+      "exported": true,
+      "storage": "Counter"
+    },
+    {
+      "name": "auditCount",
+      "index": 12,
+      "exported": true,
+      "storage": "Counter"
+    },
+    {
+      "name": "privateRecordCount",
+      "index": 13,
       "exported": true,
       "storage": "Counter"
     }

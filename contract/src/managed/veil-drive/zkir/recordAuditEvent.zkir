@@ -10,7 +10,7 @@
     { "op": "constrain_to_boolean", "var": 4 },
     { "op": "load_imm", "imm": "01" },
     { "op": "load_imm", "imm": "70" },
-    { "op": "load_imm", "imm": "0B" },
+    { "op": "load_imm", "imm": "0C" },
     { "op": "declare_pub_input", "var": 6 },
     { "op": "declare_pub_input", "var": 5 },
     { "op": "declare_pub_input", "var": 5 },

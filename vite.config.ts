@@ -20,7 +20,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1800,
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     setupFiles: './src/test/setup.ts',
     exclude: [...configDefaults.exclude, 'contract/**', 'sdk/**'],
     coverage: { reporter: ['text', 'html'] }

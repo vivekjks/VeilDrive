@@ -19,7 +19,9 @@
     "contract:compile": "pnpm --dir contract compact",
     "contract:compile:wsl": "wsl bash ./scripts/compile-contract-wsl.sh",
     "contract:test": "pnpm --dir contract test",
-    "proof-server": "docker compose up proof-server",
+    "proof-server": "node scripts/proof-server.mjs start",
+    "proof-server:status": "node scripts/proof-server.mjs status",
+    "proof-server:stop": "node scripts/proof-server.mjs stop",
     "check": "pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {

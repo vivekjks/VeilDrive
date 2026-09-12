@@ -20,25 +20,19 @@ import type {
   Workspace,
 } from '../types';
 import { createInitialState } from './fixtures';
-import { decryptVersion, encryptBlob, encryptUpload, initializeDemoFiles, sha256 } from '../lib/crypto';
+import { decryptVersion, encryptBlob, encryptUpload, sha256 } from '../lib/crypto';
 import { deleteEncryptedBlob } from '../lib/indexed-db';
 import { randomId } from '../lib/encoding';
+import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from '../lib/state-vault';
 
 const loadMidnightContract = () => import('../lib/midnight-contract');
 
-const STORAGE_KEY = 'veildrive-app-state-v1';
-type Update = (state: AppState) => AppState;
-
-const safeHydrate = (): AppState => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return createInitialState();
-    const parsed = JSON.parse(stored) as Partial<AppState>;
-    return { ...createInitialState(), ...parsed, session: { ...createInitialState().session, ...parsed.session } };
-  } catch {
-    return createInitialState();
-  }
+const commitRecord = async (recordType: string, recordId: string, payload: unknown): Promise<string> => {
+  const { commitPrivateRecordOnMidnight } = await loadMidnightContract();
+  return commitPrivateRecordOnMidnight(recordId, recordType, JSON.stringify(payload));
 };
+
+type Update = (state: AppState) => AppState;
 
 const auditEvent = (
   action: AuditEvent['action'],
@@ -61,38 +55,38 @@ interface AppActions {
   connect: (session: Partial<Session>) => void;
   disconnect: () => void;
   upload: (files: File[], parentId: string | null, privacy: PrivacyLevel) => Promise<UploadResult[]>;
-  createFolder: (name: string, parentId: string | null, privacy?: PrivacyLevel) => DriveItem;
+  createFolder: (name: string, parentId: string | null, privacy?: PrivacyLevel) => Promise<DriveItem>;
   addVersion: (fileId: string, file: File) => Promise<EncryptedVersion>;
   download: (fileId: string) => Promise<Blob>;
-  toggleFavorite: (fileId: string) => void;
-  moveToTrash: (fileId: string) => void;
-  restore: (fileId: string) => void;
+  toggleFavorite: (fileId: string) => Promise<void>;
+  moveToTrash: (fileId: string) => Promise<void>;
+  restore: (fileId: string) => Promise<void>;
   deleteForever: (fileId: string) => Promise<void>;
-  rename: (fileId: string, name: string) => void;
-  addTags: (fileId: string, tags: string[]) => void;
+  rename: (fileId: string, name: string) => Promise<void>;
+  addTags: (fileId: string, tags: string[]) => Promise<void>;
   share: (fileId: string, draft: ShareDraft) => Promise<AccessGrant>;
   revokeGrant: (grantId: string) => Promise<void>;
-  consumeGrant: (grantId: string) => void;
-  addComment: (fileId: string, body: string) => void;
-  resolveAccessRequest: (requestId: string, result: 'granted' | 'rejected') => void;
-  createAccessRequest: (fileId: string, permission: AccessGrant['permissions'][number], message: string) => void;
-  addWorkspace: (name: string, description: string) => Workspace;
-  inviteToDataRoom: (roomId: string, memberId: string) => void;
-  updateMember: (memberId: string, patch: Partial<Member>) => void;
-  addMember: (member: Omit<Member, 'id' | 'joinedAt'>) => Member;
+  consumeGrant: (grantId: string) => Promise<void>;
+  addComment: (fileId: string, body: string) => Promise<void>;
+  resolveAccessRequest: (requestId: string, result: 'granted' | 'rejected') => Promise<void>;
+  createAccessRequest: (fileId: string, permission: AccessGrant['permissions'][number], message: string) => Promise<void>;
+  addWorkspace: (name: string, description: string) => Promise<Workspace>;
+  inviteToDataRoom: (roomId: string, memberId: string) => Promise<void>;
+  updateMember: (memberId: string, patch: Partial<Member>) => Promise<void>;
+  addMember: (member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => Promise<Member>;
   issueCredential: (credential: Omit<Credential, 'id' | 'commitment'>) => Promise<Credential>;
   revokeCredential: (credentialId: string) => Promise<void>;
-  createProofRequest: (title: string, condition: string, hiddenFields: string[]) => ProofRequest;
-  generateProof: (requestId: string) => Promise<string>;
-  addGuardian: (guardian: Omit<Guardian, 'id' | 'approved'>) => Guardian;
-  toggleGuardian: (guardianId: string) => void;
-  setRecoveryThreshold: (threshold: number) => void;
+  createProofRequest: (title: string, condition: string, hiddenFields: string[]) => Promise<ProofRequest>;
+  generateProof: (requestId: string, requestOverride?: ProofRequest) => Promise<string>;
+  addGuardian: (guardian: Omit<Guardian, 'id' | 'approved'>) => Promise<Guardian>;
+  toggleGuardian: (guardianId: string) => Promise<void>;
+  setRecoveryThreshold: (threshold: number) => Promise<void>;
   createApiKey: (label: string) => Promise<{ key: ApiKey; secret: string }>;
-  revokeApiKey: (keyId: string) => void;
+  revokeApiKey: (keyId: string) => Promise<void>;
   markNotificationsRead: () => void;
   setStorageProvider: (provider: AppState['storageProvider']) => void;
   toggleSidebar: () => void;
-  resetDemo: () => void;
+  resetVault: () => Promise<void>;
 }
 
 interface AppStoreValue {
@@ -104,40 +98,40 @@ interface AppStoreValue {
 const AppStore = createContext<AppStoreValue | null>(null);
 
 export const AppStoreProvider = ({ children }: PropsWithChildren) => {
-  const [state, dispatch] = useReducer((current: AppState, update: Update) => update(current), undefined, safeHydrate);
+  const [state, dispatch] = useReducer((current: AppState, update: Update) => update(current), undefined, createInitialState);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let active = true;
-    initializeDemoFiles(state.items, state.versions)
-      .then((created) => {
+    loadEncryptedAppState()
+      .then((stored) => {
         if (!active) return;
-        if (created.length > 0) {
-          dispatch((current) => {
-            const patchById = new Map(created.map((result) => [result.item.id, result.item]));
-            return {
-              ...current,
-              items: current.items.map((item) => patchById.get(item.id) ?? item),
-              versions: [...current.versions, ...created.map((result) => result.version)],
-            };
-          });
-        }
+        if (stored) dispatch(() => ({ ...createInitialState(), ...stored, storageProvider: 'indexeddb', session: { ...createInitialState().session, ...stored.session } }));
       })
       .finally(() => active && setReady(true));
     return () => { active = false; };
-    // Vault initialization is intentionally a one-time boot operation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (ready) saveEncryptedAppState(state).catch(() => undefined);
   }, [ready, state]);
 
   const connect = useCallback((session: Partial<Session>) => {
-    dispatch((current) => ({
-      ...current,
-      session: { ...current.session, connected: true, ...session, network: 'preprod' },
-    }));
+    dispatch((current) => {
+      const nextSession = { ...current.session, connected: true, ...session, network: 'preprod' as const };
+      if (!session.veilId) return { ...current, session: nextSession };
+      const owner: Member = {
+        id: 'owner', name: nextSession.displayName, wallet: nextSession.walletAddress, veilId: session.veilId,
+        role: 'owner', department: 'Owner', status: 'active', joinedAt: new Date().toISOString(),
+      };
+      return {
+        ...current,
+        session: nextSession,
+        members: current.members.some((member) => member.id === 'owner')
+          ? current.members.map((member) => member.id === 'owner' ? { ...member, ...owner } : member)
+          : [owner, ...current.members],
+      };
+    });
   }, []);
 
   const disconnect = useCallback(() => {
@@ -146,7 +140,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
 
   const upload = useCallback(async (files: File[], parentId: string | null, privacy: PrivacyLevel) => {
     const results: UploadResult[] = [];
-    for (const file of files) results.push(await encryptUpload(file, parentId, 'alice', privacy));
+    for (const file of files) results.push(await encryptUpload(file, parentId, 'owner', privacy));
     const parent = state.items.find((item) => item.id === parentId);
     if (parent) {
       for (const result of results) {
@@ -185,16 +179,17 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return results;
   }, [state.items, state.session.mode]);
 
-  const createFolder = useCallback((name: string, parentId: string | null, privacy: PrivacyLevel = 'private') => {
+  const createFolder = useCallback(async (name: string, parentId: string | null, privacy: PrivacyLevel = 'private') => {
     const timestamp = new Date().toISOString();
     const parent = state.items.find((item) => item.id === parentId);
     const item: DriveItem = {
       id: randomId('folder'), kind: 'folder', name, encryptedName: `d_${crypto.randomUUID().slice(0, 10)}.enc`,
-      mimeType: 'application/x-directory', size: 0, parentId, ownerId: 'alice', privacy,
+      mimeType: 'application/x-directory', size: 0, parentId, ownerId: 'owner', privacy,
       createdAt: timestamp, modifiedAt: timestamp, favorite: false, trashed: false, versionIds: [], tags: [],
       workspaceId: parent?.workspaceId,
       dataRoomId: parent?.dataRoomId,
     };
+    await commitRecord('folder', item.id, item);
     dispatch((current) => ({ ...current, items: [item, ...current.items] }));
     return item;
   }, [state.items]);
@@ -230,26 +225,43 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const item = state.items.find((candidate) => candidate.id === fileId);
     const version = state.versions.find((candidate) => candidate.id === item?.currentVersionId);
     if (!item || !version) throw new Error('Encrypted version is unavailable.');
+    const { generateAuditProofOnMidnight } = await loadMidnightContract();
+    const receipt = await generateAuditProofOnMidnight(fileId, await sha256(`download:${fileId}:${version.commitment}:${Date.now()}`));
     const plaintext = await decryptVersion(version);
-    dispatch((current) => ({ ...current, audit: [auditEvent('download', item.name, fileId, { transactionId: version.transactionId }), ...current.audit] }));
+    dispatch((current) => ({ ...current, audit: [auditEvent('download', item.name, fileId, { actor: current.session.displayName, transactionId: receipt }), ...current.audit] }));
     return new Blob([plaintext], { type: item.mimeType });
   }, [state.items, state.versions]);
 
-  const toggleFavorite = useCallback((fileId: string) => dispatch((current) => ({
-    ...current, items: current.items.map((item) => item.id === fileId ? { ...item, favorite: !item.favorite } : item),
-  })), []);
+  const toggleFavorite = useCallback(async (fileId: string) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const updated = { ...item, favorite: !item.favorite };
+    await commitRecord('item-metadata', fileId, updated);
+    dispatch((current) => ({ ...current, items: current.items.map((candidate) => candidate.id === fileId ? updated : candidate) }));
+  }, [state.items]);
 
-  const moveToTrash = useCallback((fileId: string) => dispatch((current) => {
-    const item = current.items.find((candidate) => candidate.id === fileId);
-    return { ...current, items: current.items.map((candidate) => candidate.id === fileId ? { ...candidate, trashed: true } : candidate), audit: item ? [auditEvent('delete', item.name, fileId), ...current.audit] : current.audit };
-  }), []);
+  const moveToTrash = useCallback(async (fileId: string) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const updated = { ...item, trashed: true, modifiedAt: new Date().toISOString() };
+    const transactionId = await commitRecord('item-metadata', fileId, updated);
+    dispatch((current) => ({ ...current, items: current.items.map((candidate) => candidate.id === fileId ? updated : candidate), audit: [auditEvent('delete', item.name, fileId, { actor: current.session.displayName, transactionId }), ...current.audit] }));
+  }, [state.items]);
 
-  const restore = useCallback((fileId: string) => dispatch((current) => {
-    const item = current.items.find((candidate) => candidate.id === fileId);
-    return { ...current, items: current.items.map((candidate) => candidate.id === fileId ? { ...candidate, trashed: false } : candidate), audit: item ? [auditEvent('restore', item.name, fileId), ...current.audit] : current.audit };
-  }), []);
+  const restore = useCallback(async (fileId: string) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const updated = { ...item, trashed: false, modifiedAt: new Date().toISOString() };
+    const transactionId = await commitRecord('item-metadata', fileId, updated);
+    dispatch((current) => ({ ...current, items: current.items.map((candidate) => candidate.id === fileId ? updated : candidate), audit: [auditEvent('restore', item.name, fileId, { actor: current.session.displayName, transactionId }), ...current.audit] }));
+  }, [state.items]);
 
   const deleteForever = useCallback(async (fileId: string) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const contract = await loadMidnightContract();
+    if (item.kind === 'file') await contract.revokeFileOnMidnight(fileId);
+    else await contract.revokePrivateRecordOnMidnight(fileId);
     const removedVersions = state.versions.filter((version) => version.fileId === fileId);
     await Promise.all(removedVersions.map((version) => deleteEncryptedBlob(version.blobKey)));
     dispatch((current) => ({
@@ -259,37 +271,44 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       grants: current.grants.filter((grant) => grant.fileId !== fileId),
       comments: current.comments.filter((comment) => comment.fileId !== fileId),
     }));
-  }, [state.versions]);
+  }, [state.items, state.versions]);
 
-  const rename = useCallback((fileId: string, name: string) => dispatch((current) => ({
-    ...current, items: current.items.map((item) => item.id === fileId ? { ...item, name, modifiedAt: new Date().toISOString() } : item),
-  })), []);
+  const rename = useCallback(async (fileId: string, name: string) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const updated = { ...item, name, modifiedAt: new Date().toISOString() };
+    await commitRecord('item-metadata', fileId, updated);
+    dispatch((current) => ({ ...current, items: current.items.map((candidate) => candidate.id === fileId ? updated : candidate) }));
+  }, [state.items]);
 
-  const addTags = useCallback((fileId: string, tags: string[]) => dispatch((current) => ({
-    ...current, items: current.items.map((item) => item.id === fileId ? { ...item, tags: Array.from(new Set([...item.tags, ...tags])) } : item),
-  })), []);
+  const addTags = useCallback(async (fileId: string, tags: string[]) => {
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) throw new Error('Item not found.');
+    const updated = { ...item, tags: Array.from(new Set([...item.tags, ...tags])) };
+    await commitRecord('item-metadata', fileId, updated);
+    dispatch((current) => ({ ...current, items: current.items.map((candidate) => candidate.id === fileId ? updated : candidate) }));
+  }, [state.items]);
 
   const share = useCallback(async (fileId: string, draft: ShareDraft) => {
     const createdAt = new Date().toISOString();
     const id = randomId('grant');
     const token = draft.method === 'external' ? crypto.randomUUID().replaceAll('-', '') : undefined;
-    let transactionId = await sha256(`${fileId}:${draft.recipient}:${createdAt}`);
-    if (state.session.mode === 'preprod') {
-      const {
-        createPolicyOnMidnight,
-        generateAuditProofOnMidnight,
-        grantWalletAccessOnMidnight,
-      } = await loadMidnightContract();
-      if (draft.method === 'policy') {
+    let transactionId: string;
+    {
+      const { createPolicyOnMidnight, grantWalletAccessOnMidnight } = await loadMidnightContract();
+      if (draft.method === 'policy' || draft.method === 'team') {
+        const policyConditions = draft.method === 'team'
+          ? [{ id: `team-${id}`, field: 'organization' as const, operator: 'is' as const, value: draft.recipient }]
+          : draft.conditions;
         transactionId = await createPolicyOnMidnight(
           id,
           fileId,
-          JSON.stringify(draft.conditions),
+          JSON.stringify(policyConditions),
           draft.permissions,
           draft.expiresAt,
           draft.oneTime,
         );
-      } else if (draft.method === 'wallet' || draft.method === 'team') {
+      } else if (draft.method === 'wallet') {
         transactionId = await grantWalletAccessOnMidnight(
           fileId,
           draft.recipient,
@@ -298,7 +317,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
           draft.oneTime,
         );
       } else {
-        transactionId = await generateAuditProofOnMidnight(fileId, `${id}:${token}`);
+        transactionId = await commitRecord('external-grant', id, { fileId, ...draft, token, createdAt });
       }
     }
     const grant: AccessGrant = {
@@ -316,22 +335,18 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       };
     });
     return grant;
-  }, [state.session.mode]);
+  }, []);
 
   const revokeGrant = useCallback(async (grantId: string) => {
     const grant = state.grants.find((candidate) => candidate.id === grantId);
     if (!grant) throw new Error('Access grant not found.');
     let receipt: string | undefined;
-    if (state.session.mode === 'preprod') {
-      const {
-        generateAuditProofOnMidnight,
-        revokeGrantOnMidnight,
-        revokePolicyOnMidnight,
-      } = await loadMidnightContract();
-      receipt = grant.method === 'policy'
+    {
+      const { revokeGrantOnMidnight, revokePrivateRecordOnMidnight, revokePolicyOnMidnight } = await loadMidnightContract();
+      receipt = grant.method === 'policy' || grant.method === 'team'
         ? await revokePolicyOnMidnight(grant.id)
         : grant.method === 'external'
-          ? await generateAuditProofOnMidnight(grant.fileId, `revoke:${grant.id}`)
+          ? await revokePrivateRecordOnMidnight(grant.id)
           : await revokeGrantOnMidnight(grant.fileId, grant.recipient);
     }
     dispatch((current) => {
@@ -342,11 +357,24 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
         audit: [auditEvent('revoke', file?.name ?? grant.fileId, grant.fileId, { transactionId: receipt }), ...current.audit],
       };
     });
-  }, [state.grants, state.session.mode]);
+  }, [state.grants]);
 
-  const consumeGrant = useCallback((grantId: string) => dispatch((current) => ({
-    ...current, grants: current.grants.map((grant) => grant.id === grantId ? { ...grant, consumedAt: new Date().toISOString() } : grant),
-  })), []);
+  const consumeGrant = useCallback(async (grantId: string) => {
+    const grant = state.grants.find((candidate) => candidate.id === grantId);
+    if (!grant) throw new Error('Access grant not found.');
+    const consumedAt = new Date().toISOString();
+    if (grant.method === 'external') await commitRecord('external-grant', grant.id, { ...grant, consumedAt });
+    else if (grant.method === 'wallet') {
+      const { consumeWalletAccessOnMidnight } = await loadMidnightContract();
+      await consumeWalletAccessOnMidnight(grant.fileId);
+    } else {
+      const credential = state.credentials.find((candidate) => candidate.status === 'active');
+      if (!credential) throw new Error('An active credential is required to consume this policy grant.');
+      const { consumePolicyAccessOnMidnight } = await loadMidnightContract();
+      await consumePolicyAccessOnMidnight(grant.id, credential.id);
+    }
+    dispatch((current) => ({ ...current, grants: current.grants.map((candidate) => candidate.id === grantId ? { ...candidate, consumedAt } : candidate) }));
+  }, [state.credentials, state.grants]);
 
   const addComment = useCallback((fileId: string, body: string) => dispatch((current) => {
     const comment: Comment = { id: randomId('comment'), fileId, author: current.session.displayName, body, encrypted: true, createdAt: new Date().toISOString() };
@@ -391,9 +419,15 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     ...current, members: current.members.map((member) => member.id === memberId ? { ...member, ...patch } : member),
   })), []);
 
-  const addMember = useCallback((member: Omit<Member, 'id' | 'joinedAt'>) => {
+  const addMember = useCallback((member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => {
     const created: Member = { ...member, id: randomId('member'), joinedAt: new Date().toISOString() };
-    dispatch((current) => ({ ...current, members: [...current.members, created] }));
+    dispatch((current) => ({
+      ...current,
+      members: [...current.members, created],
+      workspaces: current.workspaces.map((workspace) => workspace.id === (workspaceId ?? current.workspaces[0]?.id)
+        ? { ...workspace, memberIds: [...workspace.memberIds, created.id] }
+        : workspace),
+    }));
     return created;
   }, []);
 
@@ -403,12 +437,17 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     let commitment = await sha256(claims);
     if (state.session.mode === 'preprod') {
       const { issueCredentialOnMidnight } = await loadMidnightContract();
-      commitment = await issueCredentialOnMidnight(id, input.subjectId, claims, input.expiresAt);
+      const member = state.members.find((candidate) => candidate.id === input.subjectId);
+      const holderIdentity = input.subjectId === 'alice' ? state.session.veilId : member?.veilId;
+      if (!holderIdentity || !/^[0-9a-f]{64}$/i.test(holderIdentity)) {
+        throw new Error('This member needs a 64-character Veil ID before a credential can be issued on preprod.');
+      }
+      commitment = await issueCredentialOnMidnight(id, holderIdentity, claims, input.expiresAt);
     }
     const credential: Credential = { ...input, id, commitment };
     dispatch((current) => ({ ...current, credentials: [...current.credentials, credential] }));
     return credential;
-  }, [state.session.mode]);
+  }, [state.members, state.session.mode, state.session.veilId]);
 
   const revokeCredential = useCallback(async (credentialId: string) => {
     if (state.session.mode === 'preprod') {
@@ -427,8 +466,8 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return request;
   }, []);
 
-  const generateProof = useCallback(async (requestId: string) => {
-    const request = state.proofRequests.find((candidate) => candidate.id === requestId);
+  const generateProof = useCallback(async (requestId: string, requestOverride?: ProofRequest) => {
+    const request = state.proofRequests.find((candidate) => candidate.id === requestId) ?? requestOverride;
     if (!request) throw new Error('Proof request not found.');
     const commitment = await sha256(`${request.title}:${request.condition}:${request.hiddenFields.join('|')}:${state.session.walletAddress}`);
     let receipt = commitment;
@@ -468,23 +507,27 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   })), []);
 
   const markNotificationsRead = useCallback(() => dispatch((current) => ({ ...current, notifications: current.notifications.map((notice) => ({ ...notice, read: true })) })), []);
-  const setStorageProvider = useCallback((provider: AppState['storageProvider']) => dispatch((current) => ({ ...current, storageProvider: provider })), []);
-  const toggleSidebar = useCallback(() => dispatch((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })), []);
-  const resetDemo = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    window.location.assign('/');
+  const setStorageProvider = useCallback((provider: AppState['storageProvider']) => {
+    if (provider !== 'indexeddb') return;
+    dispatch((current) => ({ ...current, storageProvider: provider }));
   }, []);
+  const toggleSidebar = useCallback(() => dispatch((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })), []);
+  const resetVault = useCallback(async () => {
+    await Promise.all(state.versions.map((version) => deleteEncryptedBlob(version.blobKey)));
+    clearEncryptedAppState();
+    window.location.assign('/');
+  }, [state.versions]);
 
   const actions = useMemo<AppActions>(() => ({
     connect, disconnect, upload, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
     deleteForever, rename, addTags, share, revokeGrant, consumeGrant, addComment, resolveAccessRequest,
     createAccessRequest, addWorkspace, inviteToDataRoom, updateMember, addMember, issueCredential, revokeCredential,
     createProofRequest, generateProof, addGuardian, toggleGuardian, setRecoveryThreshold, createApiKey,
-    revokeApiKey, markNotificationsRead, setStorageProvider, toggleSidebar, resetDemo,
+    revokeApiKey, markNotificationsRead, setStorageProvider, toggleSidebar, resetVault,
   }), [
     addComment, addGuardian, addMember, addTags, addVersion, addWorkspace, connect, createAccessRequest,
     createApiKey, createFolder, createProofRequest, deleteForever, disconnect, download, generateProof,
-    inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetDemo, resolveAccessRequest, restore,
+    inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetVault, resolveAccessRequest, restore,
     revokeApiKey, revokeCredential, revokeGrant, setRecoveryThreshold, setStorageProvider, share,
     toggleFavorite, toggleGuardian, toggleSidebar, updateMember, upload, consumeGrant,
   ]);

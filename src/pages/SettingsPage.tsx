@@ -80,7 +80,7 @@ export const SettingsPage = () => {
     try {
       const wallet = await connect();
       const result = await deployVeilDriveContract(wallet);
-      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress, contractAddress: result.contractAddress });
+      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress, contractAddress: result.contractAddress, veilId: result.identityCommitment });
       setContractInput(result.contractAddress);
       setMessage(`Contract finalized on preprod. Your private Veil ID is ${shortHash(result.identityCommitment)}.`);
     } catch (error) {
@@ -96,7 +96,7 @@ export const SettingsPage = () => {
     try {
       const wallet = await connect();
       const result = await joinVeilDriveContract(wallet, contractInput);
-      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress, contractAddress: result.contractAddress });
+      actions.connect({ mode: 'preprod', walletAddress: wallet.walletAddress, contractAddress: result.contractAddress, veilId: result.identityCommitment });
       setMessage(`Contract verified and joined. Your private Veil ID is ${shortHash(result.identityCommitment)}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not join that contract.');
@@ -190,10 +190,10 @@ export const SettingsPage = () => {
               ['ipfs', Plug, 'IPFS compatible', 'Gateway adapter configuration'],
               ['s3', Link, 'S3 compatible', 'Object storage adapter'],
             ] as const).map(([value, Icon, label, copy]) => (
-              <button key={value} className={state.storageProvider === value ? 'is-active' : ''} onClick={() => actions.setStorageProvider(value)}>
+              <button key={value} className={state.storageProvider === value ? 'is-active' : ''} onClick={() => actions.setStorageProvider(value)} disabled={value !== 'indexeddb'} title={value === 'indexeddb' ? undefined : 'Requires a separately configured encrypted object-storage adapter'}>
                 <Icon size={22} weight="light" />
                 <span><strong>{label}</strong><small>{copy}</small></span>
-                {state.storageProvider === value && <Check size={16} weight="bold" />}
+                {state.storageProvider === value ? <Check size={16} weight="bold" /> : value !== 'indexeddb' ? <small>Configure</small> : null}
               </button>
             ))}
           </div>
@@ -212,7 +212,7 @@ export const SettingsPage = () => {
             <li><span>×</span> Plaintext already seen by a recipient cannot be recalled or protected as DRM.</li>
             <li><span>×</span> Revocation cannot make a former recipient forget a key; robust offboarding rotates group keys.</li>
           </ul>
-          <Button tone="danger" onClick={actions.resetDemo}>Reset demo workspace</Button>
+          <Button tone="danger" onClick={actions.resetVault}>Clear local encrypted vault</Button>
         </section>
       </div>
     </section>

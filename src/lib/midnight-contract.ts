@@ -198,6 +198,15 @@ export const updateFileOnMidnight = async (
   hexToBytes(metadataCommitment),
 ));
 
+export const revokeFileOnMidnight = async (fileId: string) =>
+  transactionId(await requireContract().callTx.revokeFile(await fileIdBytes(fileId)));
+
+export const verifyFileOnMidnight = async (fileId: string, commitment: string) =>
+  transactionId(await requireContract().callTx.verifyCommitment(
+    await fileIdBytes(fileId),
+    hexToBytes(commitment),
+  ));
+
 const permissionMask = (permissions: Permission[]) => permissions.reduce((mask, permission) => {
   const bit = { view: 1, download: 2, edit: 4, reshare: 8 }[permission];
   return mask | bit;
@@ -242,9 +251,27 @@ export const revokeGrantOnMidnight = async (fileId: string, recipientIdentity: s
     await bytes32(recipientIdentity, 'veildrive:recipient'),
   ));
 
+export const proveWalletAccessOnMidnight = async (fileId: string) =>
+  transactionId(await requireContract().callTx.proveWalletAccess(await fileIdBytes(fileId)));
+
+export const consumeWalletAccessOnMidnight = async (fileId: string) =>
+  transactionId(await requireContract().callTx.consumeWalletAccess(await fileIdBytes(fileId)));
+
 export const revokePolicyOnMidnight = async (grantId: string) =>
   transactionId(await requireContract().callTx.revokeAccessPolicy(
     await bytes32(grantId, 'veildrive:policy'),
+  ));
+
+export const provePolicyAccessOnMidnight = async (grantId: string, credentialId: string) =>
+  transactionId(await requireContract().callTx.provePolicyAccess(
+    await bytes32(grantId, 'veildrive:policy'),
+    await bytes32(credentialId, 'veildrive:credential'),
+  ));
+
+export const consumePolicyAccessOnMidnight = async (grantId: string, credentialId: string) =>
+  transactionId(await requireContract().callTx.consumePolicyAccess(
+    await bytes32(grantId, 'veildrive:policy'),
+    await bytes32(credentialId, 'veildrive:credential'),
   ));
 
 export const issueCredentialOnMidnight = async (
@@ -269,4 +296,19 @@ export const generateAuditProofOnMidnight = async (fileId: string, commitment: s
     await fileIdBytes(fileId),
     await bytes32(commitment, 'veildrive:audit'),
     true,
+  ));
+
+export const commitPrivateRecordOnMidnight = async (
+  recordId: string,
+  recordType: string,
+  payload: string,
+) => transactionId(await requireContract().callTx.commitPrivateRecord(
+  await bytes32(recordId, 'veildrive:private-record-id'),
+  await bytes32(recordType, 'veildrive:private-record-type'),
+  await bytes32(await sha256(payload), 'veildrive:private-record-payload'),
+));
+
+export const revokePrivateRecordOnMidnight = async (recordId: string) =>
+  transactionId(await requireContract().callTx.revokePrivateRecord(
+    await bytes32(recordId, 'veildrive:private-record-id'),
   ));

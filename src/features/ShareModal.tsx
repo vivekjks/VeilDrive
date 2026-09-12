@@ -11,7 +11,7 @@ interface ShareModalProps { file: DriveItem | null; onClose: () => void; }
 const permissions: Permission[] = ['view', 'download', 'edit', 'reshare'];
 
 export const ShareModal = ({ file, onClose }: ShareModalProps) => {
-  const { actions } = useAppStore();
+  const { state, actions } = useAppStore();
   const [method, setMethod] = useState<AccessMethod>('policy');
   const [recipient, setRecipient] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(['view', 'download']);
@@ -42,10 +42,19 @@ export const ShareModal = ({ file, onClose }: ShareModalProps) => {
 
   const create = async () => {
     if (!file) return;
+    if (state.session.mode === 'preprod' && method === 'wallet' && !/^(?:0x)?[0-9a-f]{64}$/i.test(recipient.trim())) {
+      setError('Enter the recipient’s 64-character Veil ID. They can copy it from Settings after joining this registry.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const draft: ShareDraft = { method, recipient: method === 'policy' ? 'private-policy' : recipient, recipientLabel, permissions: selectedPermissions, conditions: method === 'policy' ? conditions : [], logic, expiresAt: expiry(), oneTime };
+      const draftConditions = method === 'policy'
+        ? conditions
+        : method === 'team'
+          ? [{ id: randomId('team-condition'), field: 'organization' as const, operator: 'is' as const, value: recipient.trim() }]
+          : [];
+      const draft: ShareDraft = { method, recipient: method === 'policy' ? 'private-policy' : recipient.trim(), recipientLabel, permissions: selectedPermissions, conditions: draftConditions, logic, expiresAt: expiry(), oneTime };
       const grant = await actions.share(file.id, draft);
       if (grant.token) setResultLink(`${window.location.origin}/share/${grant.token}`);
       else close();
@@ -95,7 +104,8 @@ export const ShareModal = ({ file, onClose }: ShareModalProps) => {
             ) : (
               <div className="share-step">
                 <span className="step-number">1</span><div><h3>{method === 'wallet' ? 'Share with a wallet' : method === 'team' ? 'Choose a private team' : 'Create a secure external link'}</h3><p>{method === 'external' ? 'The link still requires the controls you set below.' : 'Only the encrypted key envelope is addressed to this recipient.'}</p></div>
-                <label className="field share-recipient"><span>{method === 'wallet' ? 'Midnight wallet address' : method === 'team' ? 'Workspace or team' : 'Recipient label or email'}</span><input className="input" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder={method === 'wallet' ? 'mn_addr_preprod1…' : method === 'team' ? 'Northstar · Executive' : 'Investor group'} /></label>
+                <label className="field share-recipient"><span>{method === 'wallet' ? (state.session.mode === 'preprod' ? 'Recipient Veil ID' : 'Midnight wallet or Veil ID') : method === 'team' ? 'Workspace or team' : 'Recipient label'}</span><input className="input" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder={method === 'wallet' ? (state.session.mode === 'preprod' ? '64-character identity from Settings' : 'mn_addr_preprod1…') : method === 'team' ? 'Northstar · Executive' : 'Investor group'} /></label>
+                {method === 'wallet' && state.session.mode === 'preprod' && <p className="field-hint">Veil IDs bind the grant to the recipient’s private contract identity without publishing their wallet address.</p>}
               </div>
             )}
 
