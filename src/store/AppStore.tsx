@@ -512,7 +512,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const claims = credentialClaimsPayload(input);
     const claimsSalt = crypto.randomUUID().replaceAll('-', '');
     const claimsSecret = await sha256(`${claims}:${claimsSalt}`);
-    let commitment = await sha256(`veildrive:claims:${5b0}`);
+    let commitment = await sha256(`veildrive:claims:${claimsSecret}`);
     let transactionId = '';
     if (state.session.mode === 'preprod') {
       const { credentialClaimsCommitmentOnMidnight, issueCredentialOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
