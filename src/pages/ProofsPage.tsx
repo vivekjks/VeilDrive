@@ -32,7 +32,7 @@ export const ProofsPage = () => {
         setVerification({ fileName: file.name, commitment: await hashBlob(file), match: false });
         return;
       }
-      const transactionId = await verifyFileOnMidnight(matched.fileId, commitment);
+      const transactionId = await verifyFileOnMidnight(matched.fileId, commitment, matched.version);
       setVerification({ fileName: file.name, commitment, match: true, version: matched.version, registered: matched.createdAt, transactionId });
     } catch (reason) {
       setVerification({ fileName: file.name, commitment: '', match: false, error: reason instanceof Error ? reason.message : 'On-chain verification failed.' });

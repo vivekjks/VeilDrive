@@ -113,6 +113,7 @@ const AppStore = createContext<AppStoreValue | null>(null);
 export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   const [state, dispatch] = useReducer((current: AppState, update: Update) => update(current), undefined, createInitialState);
   const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -120,13 +121,14 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       .then((stored) => {
         if (!active) return;
         if (stored) dispatch(() => ({ ...createInitialState(), ...stored, storageProvider: 'indexeddb', session: { ...createInitialState().session, ...stored.session, connected: false } }));
+        setReady(true);
       })
-      .finally(() => active && setReady(true));
+      .catch((error: unknown) => { if (active) setStorageError(error instanceof Error ? error.message : 'Encrypted storage is unavailable.'); });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (ready) saveEncryptedAppState(state).catch(() => undefined);
+    if (ready) saveEncryptedAppState(state).catch(() => setStorageError('The encrypted vault could not be saved. Keep this page open and free browser storage before retrying.'));
   }, [ready, state]);
 
   const connect = useCallback((session: Partial<Session>) => {
@@ -305,10 +307,10 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   const share = useCallback(async (fileId: string, draft: ShareDraft) => {
     const createdAt = new Date().toISOString();
     const id = randomId('grant');
-    const token = draft.method === 'external' ? crypto.randomUUID().replaceAll('-', '') : undefined;
+    const token = draft.method === 'external' ? await sha256(`${crypto.randomUUID()}:${crypto.randomUUID()}`) : undefined;
     let transactionId: string;
     {
-      const { createPolicyOnMidnight, grantWalletAccessOnMidnight } = await loadMidnightContract();
+      const { createCapabilityAccessOnMidnight, createPolicyOnMidnight, grantWalletAccessOnMidnight } = await loadMidnightContract();
       if (draft.method === 'policy') {
         const valueFor = (field: 'organization' | 'department' | 'role') => draft.conditions.find((condition) => condition.field === field && condition.operator === 'is')?.value.trim() ?? '';
         const policyClaims = { organization: valueFor('organization'), department: valueFor('department'), role: valueFor('role') };
@@ -337,7 +339,8 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
           draft.oneTime,
         );
       } else {
-        transactionId = await commitRecord('external-grant', id, { fileId, ...draft, token, createdAt });
+        if (!token) throw new Error('Could not create a private capability secret.');
+        transactionId = await createCapabilityAccessOnMidnight(id, fileId, token, draft.permissions, draft.expiresAt, draft.oneTime);
       }
     }
     const grant: AccessGrant = {
@@ -362,11 +365,11 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     if (!grant) throw new Error('Access grant not found.');
     let receipt: string | undefined;
     {
-      const { revokeGrantOnMidnight, revokePrivateRecordOnMidnight, revokePolicyOnMidnight } = await loadMidnightContract();
+      const { revokeCapabilityAccessOnMidnight, revokeGrantOnMidnight, revokePolicyOnMidnight } = await loadMidnightContract();
       receipt = grant.method === 'policy' || grant.method === 'team'
         ? await revokePolicyOnMidnight(grant.id)
         : grant.method === 'external'
-          ? await revokePrivateRecordOnMidnight(grant.id)
+          ? await revokeCapabilityAccessOnMidnight(grant.id)
           : await revokeGrantOnMidnight(grant.fileId, grant.recipient);
     }
     dispatch((current) => {
@@ -383,7 +386,11 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const grant = state.grants.find((candidate) => candidate.id === grantId);
     if (!grant) throw new Error('Access grant not found.');
     const consumedAt = new Date().toISOString();
-    if (grant.method === 'external') await commitRecord('external-grant', grant.id, { ...grant, consumedAt });
+    if (grant.method === 'external') {
+      if (!grant.token) throw new Error('The private capability secret is unavailable.');
+      const { consumeCapabilityAccessOnMidnight } = await loadMidnightContract();
+      await consumeCapabilityAccessOnMidnight(grant.id, grant.token);
+    }
     else if (grant.method === 'wallet') {
       const { consumeWalletAccessOnMidnight } = await loadMidnightContract();
       await consumeWalletAccessOnMidnight(grant.fileId);
@@ -417,11 +424,8 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       await contract.setLocalCredentialClaimsOnMidnight(credential.claimsSecret);
       receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id);
     } else {
-      receipt = await commitRecord('external-access-proof', `${grant.id}:proof:${Date.now()}`, {
-        grantId: grant.id,
-        fileId: grant.fileId,
-        provedAt: new Date().toISOString(),
-      });
+      if (!grant.token) throw new Error('The private capability secret is unavailable.');
+      receipt = await contract.proveCapabilityAccessOnMidnight(grant.id, grant.token);
     }
     const file = state.items.find((candidate) => candidate.id === grant.fileId);
     dispatch((current) => ({
@@ -627,6 +631,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     toggleFavorite, toggleGuardian, toggleSidebar, updateMember, upload, consumeGrant,
   ]);
 
+  if (storageError) return <main className="boot-screen"><h1>Vault storage needs attention</h1><p role="alert">{storageError}</p><button onClick={() => ready ? saveEncryptedAppState(state).then(() => setStorageError('')).catch(() => undefined) : window.location.reload()}>Retry</button></main>;
   return <AppStore.Provider value={{ state, actions, ready }}>{children}</AppStore.Provider>;
 };
 

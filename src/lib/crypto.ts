@@ -1,17 +1,12 @@
 import type { DriveItem, EncryptedVersion, UploadResult } from '../types';
 import { base64ToBytes, bytesToBase64, bytesToHex, randomId } from './encoding';
-import { getEncryptedBlob, getVaultKey, putEncryptedBlob, putVaultKey } from './indexed-db';
+import { getEncryptedBlob, getOrCreateVaultKey, putEncryptedBlob } from './indexed-db';
 
 const MASTER_KEY_ID = 'veildrive-master-wrapping-key-v1';
 const encoder = new TextEncoder();
 
-const masterWrappingKey = async (): Promise<CryptoKey> => {
-  const existing = await getVaultKey(MASTER_KEY_ID);
-  if (existing) return existing;
-  const key = await crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, false, ['wrapKey', 'unwrapKey']);
-  await putVaultKey(MASTER_KEY_ID, key);
-  return key;
-};
+const masterWrappingKey = (): Promise<CryptoKey> => getOrCreateVaultKey(MASTER_KEY_ID,
+  () => crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, false, ['wrapKey', 'unwrapKey']));
 
 export const sha256 = async (data: ArrayBuffer | Uint8Array | string): Promise<string> => {
   const source = typeof data === 'string'
@@ -71,7 +66,7 @@ export const encryptBlob = async (
     size: blob.size,
     createdAt: new Date().toISOString(),
     createdBy,
-    transactionId: await sha256(`${commitment}:${versionNumber}:${Date.now()}`),
+    transactionId: '',
   };
 };
 

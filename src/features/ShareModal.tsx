@@ -33,7 +33,7 @@ export const ShareModal = ({ file, onClose }: ShareModalProps) => {
     if (method === 'policy') return 'Private credential rule';
     if (method === 'external') return recipient.trim() || 'External recipient';
     return recipient.trim();
-  }, [conditions, method, recipient]);
+  }, [method, recipient]);
 
   const expiry = () => {
     if (expires === 'never') return null;

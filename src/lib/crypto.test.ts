@@ -4,7 +4,7 @@ import { decryptVersion, decryptVersionMetadata, encryptBlob, hashBlob, verifyBl
 describe('client-side encrypted vault', () => {
   it('round-trips file bytes and separately encrypted metadata', async () => {
     const source = new Blob(['board packet: strictly confidential'], { type: 'text/plain' });
-    const version = await encryptBlob(source, 'file-test', 1, 'alice', {
+    const version = await encryptBlob(source, 'file-test', 1, 'owner', {
       name: 'board-packet.txt',
       classification: 'maximum',
     });

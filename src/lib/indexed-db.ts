@@ -82,3 +82,26 @@ export const putVaultKey = async (key: string, value: CryptoKey): Promise<void> 
     request.onerror = () => reject(request.error ?? new Error('Unable to persist vault key.'));
   });
 };
+
+// An IndexedDB read/write transaction serializes creation across browser tabs.
+// Concurrent first uploads must never end up wrapped by a discarded key.
+export const getOrCreateVaultKey = async (keyId: string, create: () => Promise<CryptoKey>): Promise<CryptoKey> => {
+  const existing = await getVaultKey(keyId);
+  if (existing) return existing;
+  const candidate = await create();
+  if (!hasIndexedDb()) throw new Error('Persistent browser storage is required for this encrypted vault.');
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(KEYS, 'readwrite');
+    const store = transaction.objectStore(KEYS);
+    const request = store.get(keyId);
+    let selected = candidate;
+    request.onsuccess = () => {
+      if (request.result) selected = request.result as CryptoKey;
+      else store.put(candidate, keyId);
+    };
+    transaction.oncomplete = () => resolve(selected);
+    transaction.onerror = () => reject(transaction.error ?? new Error('Unable to persist encryption key.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Encryption key transaction was aborted.'));
+  });
+};

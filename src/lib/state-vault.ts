@@ -1,44 +1,51 @@
 import type { AppState } from '../types';
 import { base64ToBytes, bytesToBase64 } from './encoding';
-import { getVaultKey, putVaultKey } from './indexed-db';
+import { getOrCreateVaultKey, getVaultKey } from './indexed-db';
 
 const STATE_KEY = 'veildrive-encrypted-app-state-v1';
 const STATE_CRYPTO_KEY = 'veildrive-app-state-key-v1';
 const encoder = new TextEncoder();
 
-const getStateKey = async (): Promise<CryptoKey> => {
-  const existing = await getVaultKey(STATE_CRYPTO_KEY);
-  if (existing) return existing;
-  const created = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-  await putVaultKey(STATE_CRYPTO_KEY, created);
-  return created;
-};
+const getStateKey = (): Promise<CryptoKey> => getOrCreateVaultKey(STATE_CRYPTO_KEY,
+  () => crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']));
+let pendingSave: Promise<void> = Promise.resolve();
+let generation = 0;
 
 export const loadEncryptedAppState = async (): Promise<AppState | null> => {
   const stored = localStorage.getItem(STATE_KEY);
   if (!stored) return null;
   try {
     const envelope = JSON.parse(stored) as { iv: string; ciphertext: string };
+    const key = await getVaultKey(STATE_CRYPTO_KEY);
+    if (!key) throw new Error('Encryption key unavailable.');
     const plaintext = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: base64ToBytes(envelope.iv) },
-      await getStateKey(),
+      key,
       base64ToBytes(envelope.ciphertext),
     );
     return JSON.parse(new TextDecoder().decode(plaintext)) as AppState;
   } catch {
-    localStorage.removeItem(STATE_KEY);
-    return null;
+    throw new Error('This encrypted vault could not be opened. Its stored data has been preserved. Reopen the original browser profile or restore a vault backup.');
   }
 };
 
-export const saveEncryptedAppState = async (state: AppState): Promise<void> => {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    await getStateKey(),
-    encoder.encode(JSON.stringify(state)),
-  );
-  localStorage.setItem(STATE_KEY, JSON.stringify({ iv: bytesToBase64(iv), ciphertext: bytesToBase64(ciphertext) }));
+export const saveEncryptedAppState = (state: AppState): Promise<void> => {
+  const snapshot = JSON.stringify(state);
+  const currentGeneration = generation;
+  // Save in invocation order, preventing a slow older encryption from replacing
+  // a newer state after a transaction has finalized.
+  const write = pendingSave.catch(() => undefined).then(async () => {
+    if (currentGeneration !== generation) return;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await getStateKey(), encoder.encode(snapshot));
+    if (currentGeneration !== generation) return;
+    localStorage.setItem(STATE_KEY, JSON.stringify({ iv: bytesToBase64(iv), ciphertext: bytesToBase64(ciphertext) }));
+  });
+  pendingSave = write;
+  return write;
 };
 
-export const clearEncryptedAppState = (): void => localStorage.removeItem(STATE_KEY);
+export const clearEncryptedAppState = (): void => {
+  generation += 1;
+  localStorage.removeItem(STATE_KEY);
+};

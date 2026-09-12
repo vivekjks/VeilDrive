@@ -22,7 +22,7 @@ import {
   type MidnightProviders,
   type UnboundTransaction,
 } from '@midnight-ntwrk/midnight-js-types';
-import { fromHex, toHex } from '@midnight-ntwrk/midnight-js-utils';
+import { fromHex, toHex, parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { Permission } from '../types';
 import { bytesToHex, hexToBytes } from './encoding';
 import { sha256 } from './crypto';
@@ -100,8 +100,8 @@ const initializeProviders = async (connection: WalletConnection): Promise<{
         globalThis.WebSocket as never,
       ),
       walletProvider: {
-        getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
-        getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
+        getCoinPublicKey: () => parseCoinPublicKeyToHex(addresses.shieldedCoinPublicKey, PREPROD.networkId),
+        getEncryptionPublicKey: () => parseEncPublicKeyToHex(addresses.shieldedEncryptionPublicKey, PREPROD.networkId),
         balanceTx: async (transaction: UnboundTransaction): Promise<FinalizedTransaction> => {
           const balanced = await connection.api.balanceUnsealedTransaction(toHex(transaction.serialize()));
           return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
@@ -151,13 +151,15 @@ export const joinVeilDriveContract = async (
   const address = contractAddress.trim();
   if (!address) throw new Error('Enter a deployed VeilDrive contract address.');
   const { providers, privateState } = await initializeProviders(connection);
+  providers.privateStateProvider.setContractAddress(address);
+  const existingPrivateState = await providers.privateStateProvider.get(VEIL_PRIVATE_STATE_ID);
   const contract = await findDeployedContract(providers, {
     contractAddress: address,
     compiledContract: CompiledVeilDriveContract,
     privateStateId: VEIL_PRIVATE_STATE_ID,
-    initialPrivateState: privateState,
+    ...(existingPrivateState ? {} : { initialPrivateState: privateState }),
   });
-  return rememberSession(contract, privateState, providers);
+  return rememberSession(contract, existingPrivateState ?? privateState, providers);
 };
 
 export const getMidnightContractSession = (): MidnightContractSession | null =>
@@ -204,11 +206,10 @@ export const updateFileOnMidnight = async (
 export const revokeFileOnMidnight = async (fileId: string) =>
   transactionId(await requireContract().callTx.revokeFile(await fileIdBytes(fileId)));
 
-export const verifyFileOnMidnight = async (fileId: string, commitment: string) =>
-  transactionId(await requireContract().callTx.verifyCommitment(
-    await fileIdBytes(fileId),
-    hexToBytes(commitment),
-  ));
+export const verifyFileOnMidnight = async (fileId: string, commitment: string, version?: number) =>
+  version === undefined
+    ? transactionId(await requireContract().callTx.verifyCommitment(await fileIdBytes(fileId), hexToBytes(commitment)))
+    : transactionId(await requireContract().callTx.verifyFileVersion(await fileIdBytes(fileId), BigInt(version), hexToBytes(commitment)));
 
 const permissionMask = (permissions: Permission[]) => permissions.reduce((mask, permission) => {
   const bit = { view: 1, download: 2, edit: 4, reshare: 8 }[permission];
@@ -275,6 +276,51 @@ export const consumePolicyAccessOnMidnight = async (grantId: string, credentialI
   transactionId(await requireContract().callTx.consumePolicyAccess(
     await bytes32(grantId, 'veildrive:policy'),
     await bytes32(credentialId, 'veildrive:credential'),
+  ));
+
+export const createCapabilityAccessOnMidnight = async (
+  capabilityId: string,
+  fileId: string,
+  tokenSecret: string,
+  permissions: Permission[],
+  expiresAt: string | null,
+  oneTime: boolean,
+) => transactionId(await requireContract().callTx.createCapabilityAccess(
+  await bytes32(capabilityId, 'veildrive:capability-id'),
+  await fileIdBytes(fileId),
+  pureCircuits.capabilityCommitment(await bytes32(tokenSecret, 'veildrive:capability-secret')),
+  BigInt(permissionMask(permissions)),
+  expirySeconds(expiresAt),
+  oneTime,
+));
+
+const setLocalCapabilitySecret = async (tokenSecret: string) => {
+  if (!activeProviders) throw new Error('Deploy or join the VeilDrive contract before using a private link.');
+  const current = await activeProviders.privateStateProvider.get(VEIL_PRIVATE_STATE_ID);
+  if (!current) throw new Error('The local private contract state is unavailable. Rejoin the registry.');
+  await activeProviders.privateStateProvider.set(VEIL_PRIVATE_STATE_ID, {
+    ...current,
+    capabilitySecret: await bytes32(tokenSecret, 'veildrive:capability-secret'),
+  });
+};
+
+export const proveCapabilityAccessOnMidnight = async (capabilityId: string, tokenSecret: string) => {
+  await setLocalCapabilitySecret(tokenSecret);
+  return transactionId(await requireContract().callTx.proveCapabilityAccess(
+    await bytes32(capabilityId, 'veildrive:capability-id'),
+  ));
+};
+
+export const consumeCapabilityAccessOnMidnight = async (capabilityId: string, tokenSecret: string) => {
+  await setLocalCapabilitySecret(tokenSecret);
+  return transactionId(await requireContract().callTx.consumeCapabilityAccess(
+    await bytes32(capabilityId, 'veildrive:capability-id'),
+  ));
+};
+
+export const revokeCapabilityAccessOnMidnight = async (capabilityId: string) =>
+  transactionId(await requireContract().callTx.revokeCapabilityAccess(
+    await bytes32(capabilityId, 'veildrive:capability-id'),
   ));
 
 export const issueCredentialOnMidnight = async (

@@ -3,6 +3,7 @@ import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 export type Witnesses<PS> = {
   localSecretKey(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
   localCredentialClaims(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  localCapabilitySecret(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {
@@ -14,6 +15,10 @@ export type ImpureCircuits<PS> = {
              fileId_0: Uint8Array,
              commitment_0: Uint8Array,
              metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
+                    fileId_0: Uint8Array,
+                    version_0: bigint,
+                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
@@ -55,6 +60,19 @@ export type ImpureCircuits<PS> = {
   consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
                       policyId_0: Uint8Array,
                       credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array,
+                         fileId_0: Uint8Array,
+                         tokenCommitment_0: Uint8Array,
+                         permissions_0: bigint,
+                         expiresAt_0: bigint,
+                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
+  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
                    eventCommitment_0: Uint8Array,
@@ -82,6 +100,10 @@ export type ProvableCircuits<PS> = {
              fileId_0: Uint8Array,
              commitment_0: Uint8Array,
              metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
+                    fileId_0: Uint8Array,
+                    version_0: bigint,
+                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
@@ -123,6 +145,19 @@ export type ProvableCircuits<PS> = {
   consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
                       policyId_0: Uint8Array,
                       credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array,
+                         fileId_0: Uint8Array,
+                         tokenCommitment_0: Uint8Array,
+                         permissions_0: bigint,
+                         expiresAt_0: bigint,
+                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
+  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
                    eventCommitment_0: Uint8Array,
@@ -145,6 +180,8 @@ export type PureCircuits = {
   identityCommitment(secretKey_0: Uint8Array): Uint8Array;
   claimsCommitment(claims_0: Uint8Array): Uint8Array;
   accessGrantId(fileId_0: Uint8Array, recipient_0: Uint8Array): Uint8Array;
+  capabilityCommitment(secret_0: Uint8Array): Uint8Array;
+  fileVersionId(fileId_0: Uint8Array, version_0: bigint): Uint8Array;
 }
 
 export type Circuits<PS> = {
@@ -155,6 +192,11 @@ export type Circuits<PS> = {
   accessGrantId(context: __compactRuntime.CircuitContext<PS>,
                 fileId_0: Uint8Array,
                 recipient_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  capabilityCommitment(context: __compactRuntime.CircuitContext<PS>,
+                       secret_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  fileVersionId(context: __compactRuntime.CircuitContext<PS>,
+                fileId_0: Uint8Array,
+                version_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
   registerFile(context: __compactRuntime.CircuitContext<PS>,
                fileId_0: Uint8Array,
                commitment_0: Uint8Array,
@@ -163,6 +205,10 @@ export type Circuits<PS> = {
              fileId_0: Uint8Array,
              commitment_0: Uint8Array,
              metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
+  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
+                    fileId_0: Uint8Array,
+                    version_0: bigint,
+                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
@@ -204,6 +250,19 @@ export type Circuits<PS> = {
   consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
                       policyId_0: Uint8Array,
                       credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array,
+                         fileId_0: Uint8Array,
+                         tokenCommitment_0: Uint8Array,
+                         permissions_0: bigint,
+                         expiresAt_0: bigint,
+                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
+  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
+                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
   recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
                    fileId_0: Uint8Array,
                    eventCommitment_0: Uint8Array,
@@ -247,6 +306,13 @@ export type Ledger = {
   revoked: boolean
 }]>
   };
+  fileVersions: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(key_0: Uint8Array): boolean;
+    lookup(key_0: Uint8Array): Uint8Array;
+    [Symbol.iterator](): Iterator<[Uint8Array, Uint8Array]>
+  };
   grants: {
     isEmpty(): boolean;
     size(): bigint;
@@ -272,12 +338,14 @@ export type Ledger = {
     isEmpty(): boolean;
     size(): bigint;
     member(key_0: Uint8Array): boolean;
-    lookup(key_0: Uint8Array): { holder: Uint8Array,
+    lookup(key_0: Uint8Array): { issuer: Uint8Array,
+                                 holder: Uint8Array,
                                  claimsCommitment: Uint8Array,
                                  expiresAt: bigint,
                                  revoked: boolean
                                };
-    [Symbol.iterator](): Iterator<[Uint8Array, { holder: Uint8Array,
+    [Symbol.iterator](): Iterator<[Uint8Array, { issuer: Uint8Array,
+  holder: Uint8Array,
   claimsCommitment: Uint8Array,
   expiresAt: bigint,
   revoked: boolean
@@ -297,6 +365,29 @@ export type Ledger = {
                                };
     [Symbol.iterator](): Iterator<[Uint8Array, { fileId: Uint8Array,
   requiredClaims: Uint8Array,
+  permissions: bigint,
+  expiresAt: bigint,
+  oneTime: boolean,
+  consumed: boolean,
+  active: boolean
+}]>
+  };
+  capabilities: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(key_0: Uint8Array): boolean;
+    lookup(key_0: Uint8Array): { fileId: Uint8Array,
+                                 owner: Uint8Array,
+                                 tokenCommitment: Uint8Array,
+                                 permissions: bigint,
+                                 expiresAt: bigint,
+                                 oneTime: boolean,
+                                 consumed: boolean,
+                                 active: boolean
+                               };
+    [Symbol.iterator](): Iterator<[Uint8Array, { fileId: Uint8Array,
+  owner: Uint8Array,
+  tokenCommitment: Uint8Array,
   permissions: bigint,
   expiresAt: bigint,
   oneTime: boolean,
@@ -335,6 +426,7 @@ export type Ledger = {
   readonly grantCount: bigint;
   readonly credentialCount: bigint;
   readonly policyCount: bigint;
+  readonly capabilityCount: bigint;
   readonly auditCount: bigint;
   readonly privateRecordCount: bigint;
 }

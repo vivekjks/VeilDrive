@@ -3,17 +3,19 @@ import type { Ledger, Witnesses } from './managed/veil-drive/contract/index.js';
 
 /**
  * Values that never enter the public ledger. Each browser session owns a
- * secret identity key and the private claim set used by credential proofs.
+ * secret identity key, private credential claim secret, and link capability.
  */
 export type VeilDrivePrivateState = {
   readonly secretKey: Uint8Array;
   readonly credentialClaims: Uint8Array;
+  readonly capabilitySecret: Uint8Array;
 };
 
 export const createVeilDrivePrivateState = (
   secretKey: Uint8Array = crypto.getRandomValues(new Uint8Array(32)),
   credentialClaims: Uint8Array = new Uint8Array(32),
-): VeilDrivePrivateState => ({ secretKey, credentialClaims });
+  capabilitySecret: Uint8Array = new Uint8Array(32),
+): VeilDrivePrivateState => ({ secretKey, credentialClaims, capabilitySecret });
 
 export const witnesses: Witnesses<VeilDrivePrivateState> = {
   localSecretKey: ({ privateState }: WitnessContext<Ledger, VeilDrivePrivateState>) => [
@@ -23,5 +25,9 @@ export const witnesses: Witnesses<VeilDrivePrivateState> = {
   localCredentialClaims: ({ privateState }: WitnessContext<Ledger, VeilDrivePrivateState>) => [
     privateState,
     privateState.credentialClaims,
+  ],
+  localCapabilitySecret: ({ privateState }: WitnessContext<Ledger, VeilDrivePrivateState>) => [
+    privateState,
+    privateState.capabilitySecret,
   ],
 };

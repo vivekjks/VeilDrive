@@ -65,6 +65,49 @@
       }
     },
     {
+      "name": "capabilityCommitment",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "secret",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "fileVersionId",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "fileId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "version",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 4294967295
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
       "name": "registerFile",
       "pure": false,
       "proof": true,
@@ -118,6 +161,39 @@
         },
         {
           "name": "metadataCommitment",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "verifyFileVersion",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "fileId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "version",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 4294967295
+          }
+        },
+        {
+          "name": "expectedCommitment",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -483,6 +559,114 @@
       }
     },
     {
+      "name": "createCapabilityAccess",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "capabilityId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "fileId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "tokenCommitment",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "permissions",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 255
+          }
+        },
+        {
+          "name": "expiresAt",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "oneTime",
+          "type": {
+            "type-name": "Boolean"
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "proveCapabilityAccess",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "capabilityId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 255
+      }
+    },
+    {
+      "name": "consumeCapabilityAccess",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "capabilityId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 255
+      }
+    },
+    {
+      "name": "revokeCapabilityAccess",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "capabilityId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
       "name": "recordAuditEvent",
       "pure": false,
       "proof": true,
@@ -634,6 +818,15 @@
         "type-name": "Bytes",
         "length": 32
       }
+    },
+    {
+      "name": "localCapabilitySecret",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
     }
   ],
   "contracts": [
@@ -641,7 +834,10 @@
   "ledger": [
     {
       "name": "administrator",
-      "index": 0,
+      "index": [
+        0,
+        0
+      ],
       "exported": true,
       "storage": "Cell",
       "type": {
@@ -651,7 +847,10 @@
     },
     {
       "name": "issuers",
-      "index": 1,
+      "index": [
+        0,
+        1
+      ],
       "exported": true,
       "storage": "Set",
       "type": {
@@ -661,7 +860,10 @@
     },
     {
       "name": "files",
-      "index": 2,
+      "index": [
+        1,
+        0
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -710,8 +912,28 @@
       }
     },
     {
+      "name": "fileVersions",
+      "index": [
+        1,
+        1
+      ],
+      "exported": true,
+      "storage": "Map",
+      "key": {
+        "type-name": "Bytes",
+        "length": 32
+      },
+      "value": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
       "name": "grants",
-      "index": 3,
+      "index": [
+        1,
+        2
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -773,7 +995,10 @@
     },
     {
       "name": "credentials",
-      "index": 4,
+      "index": [
+        1,
+        3
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -784,6 +1009,13 @@
         "type-name": "Struct",
         "name": "CredentialRecord",
         "elements": [
+          {
+            "name": "issuer",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
           {
             "name": "holder",
             "type": {
@@ -816,7 +1048,10 @@
     },
     {
       "name": "policies",
-      "index": 5,
+      "index": [
+        1,
+        4
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -877,8 +1112,83 @@
       }
     },
     {
+      "name": "capabilities",
+      "index": [
+        1,
+        5
+      ],
+      "exported": true,
+      "storage": "Map",
+      "key": {
+        "type-name": "Bytes",
+        "length": 32
+      },
+      "value": {
+        "type-name": "Struct",
+        "name": "CapabilityGrant",
+        "elements": [
+          {
+            "name": "fileId",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "owner",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "tokenCommitment",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          },
+          {
+            "name": "permissions",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 255
+            }
+          },
+          {
+            "name": "expiresAt",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 18446744073709551615
+            }
+          },
+          {
+            "name": "oneTime",
+            "type": {
+              "type-name": "Boolean"
+            }
+          },
+          {
+            "name": "consumed",
+            "type": {
+              "type-name": "Boolean"
+            }
+          },
+          {
+            "name": "active",
+            "type": {
+              "type-name": "Boolean"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "auditEvents",
-      "index": 6,
+      "index": [
+        1,
+        6
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -914,7 +1224,10 @@
     },
     {
       "name": "privateRecords",
-      "index": 7,
+      "index": [
+        1,
+        7
+      ],
       "exported": true,
       "storage": "Map",
       "key": {
@@ -964,37 +1277,64 @@
     },
     {
       "name": "fileCount",
-      "index": 8,
+      "index": [
+        1,
+        8
+      ],
       "exported": true,
       "storage": "Counter"
     },
     {
       "name": "grantCount",
-      "index": 9,
+      "index": [
+        1,
+        9
+      ],
       "exported": true,
       "storage": "Counter"
     },
     {
       "name": "credentialCount",
-      "index": 10,
+      "index": [
+        1,
+        10
+      ],
       "exported": true,
       "storage": "Counter"
     },
     {
       "name": "policyCount",
-      "index": 11,
+      "index": [
+        1,
+        11
+      ],
+      "exported": true,
+      "storage": "Counter"
+    },
+    {
+      "name": "capabilityCount",
+      "index": [
+        1,
+        12
+      ],
       "exported": true,
       "storage": "Counter"
     },
     {
       "name": "auditCount",
-      "index": 12,
+      "index": [
+        1,
+        13
+      ],
       "exported": true,
       "storage": "Counter"
     },
     {
       "name": "privateRecordCount",
-      "index": 13,
+      "index": [
+        1,
+        14
+      ],
       "exported": true,
       "storage": "Counter"
     }

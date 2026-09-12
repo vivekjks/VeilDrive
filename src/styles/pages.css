@@ -216,7 +216,7 @@
 .trash-list .button { min-height: 38px; }
 
 .privacy-score { min-height: 235px; margin-top: 42px; padding: 36px; display: grid; grid-template-columns: 160px 1fr minmax(240px,.7fr); align-items: center; gap: 35px; background: radial-gradient(circle at 70%, rgba(216,255,115,.08), transparent 38%); box-shadow: inset 0 1px 0 var(--hairline), inset 0 -1px 0 var(--hairline); }
-.privacy-score__ring { width: 150px; height: 150px; border-radius: 50%; display: grid; place-content: center; text-align: center; background: radial-gradient(circle at center, var(--bg) 58%, transparent 59%), conic-gradient(var(--lime) 0 96%, rgba(255,255,255,.07) 96%); }
+.privacy-score__ring { width: 150px; height: 150px; border-radius: 50%; display: grid; place-content: center; text-align: center; background: radial-gradient(circle at center, var(--bg) 58%, transparent 59%), conic-gradient(var(--lime) 0 100%); }
 .privacy-score__ring strong { font-size: 42px; letter-spacing: -.06em; }
 .privacy-score__ring small { color: var(--muted); font-size: 8px; }
 .privacy-score h2 { margin: 12px 0 8px; font-size: 31px; letter-spacing: -.05em; }
