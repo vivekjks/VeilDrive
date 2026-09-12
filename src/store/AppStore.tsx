@@ -65,7 +65,7 @@ const auditEvent = (
 interface AppActions {
   connect: (session: Partial<Session>) => void;
   disconnect: () => void;
-  upload: (files: File[], parentId: string | null, privacy: PrivacyLevel) => Promise<UploadResult[]>;
+  upload: (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => Promise<UploadResult[]>;
   createFolder: (name: string, parentId: string | null, privacy?: PrivacyLevel) => Promise<DriveItem>;
   addVersion: (fileId: string, file: File) => Promise<EncryptedVersion>;
   download: (fileId: string) => Promise<Blob>;
@@ -153,46 +153,37 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
   }, []);
 
-  const upload = useCallback(async (files: File[], parentId: string | null, privacy: PrivacyLevel) => {
+  const upload = useCallback(async (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => {
     const results: UploadResult[] = [];
-    for (const file of files) results.push(await encryptUpload(file, parentId, 'owner', privacy));
     const parent = state.items.find((item) => item.id === parentId);
-    if (parent) {
-      for (const result of results) {
-        result.item.workspaceId = parent.workspaceId;
-        result.item.dataRoomId = parent.dataRoomId;
-      }
-    }
-    if (state.session.mode === 'preprod') {
+    if (parentId && (!parent || parent.kind !== 'folder' || parent.trashed)) throw new Error('Choose an active destination folder.');
+    const { registerFileOnMidnight, hasActiveMidnightContract } = await loadMidnightContract();
+    if (!hasActiveMidnightContract()) throw new Error('Connect your wallet and open the registry in Settings before uploading.');
+    for (const file of files) {
+      onProgress?.('encrypting');
+      const result = await encryptUpload(file, parentId, 'owner', privacy);
+      result.item.workspaceId = parent?.workspaceId;
+      result.item.dataRoomId = parent?.dataRoomId;
       try {
-        const { registerFileOnMidnight } = await loadMidnightContract();
-        for (const result of results) {
-          result.version.transactionId = await registerFileOnMidnight(
-            result.item.id,
-            result.version.commitment,
-            await sha256(result.version.metadataCipher),
-          );
-        }
+        onProgress?.('registering');
+        result.version.transactionId = await registerFileOnMidnight(result.item.id, result.version.commitment, await sha256(result.version.metadataCipher));
       } catch (error) {
-        await Promise.all(results.map((result) => deleteEncryptedBlob(result.version.blobKey)));
-        throw error;
+        await deleteEncryptedBlob(result.version.blobKey);
+        const message = error instanceof Error ? error.message : 'Registration failed.';
+        throw new Error(results.length ? `${results.length} file(s) completed. ${file.name} failed: ${message}` : message);
       }
+      results.push(result);
+      // Preserve each finalized upload immediately. A later file can fail
+      // without deleting ciphertext already committed to the chain.
+      dispatch((current) => ({
+        ...current,
+        items: [result.item, ...current.items],
+        versions: [...current.versions, result.version],
+        audit: [auditEvent('upload', result.item.name, result.item.id, { actor: current.session.displayName, transactionId: result.version.transactionId }), ...current.audit],
+      }));
     }
-    dispatch((current) => ({
-      ...current,
-      items: [...results.map((result) => result.item), ...current.items],
-      versions: [...current.versions, ...results.map((result) => result.version)],
-      audit: [
-        ...results.map((result) => auditEvent('upload', result.item.name, result.item.id, { transactionId: result.version.transactionId })),
-        ...current.audit,
-      ],
-      notifications: [
-        { id: randomId('notice'), title: 'Upload protected', body: `${results.length} item${results.length === 1 ? '' : 's'} encrypted and committed.`, createdAt: new Date().toISOString(), read: false, type: 'security' },
-        ...current.notifications,
-      ],
-    }));
     return results;
-  }, [state.items, state.session.mode]);
+  }, [state.items]);
 
   const createFolder = useCallback(async (name: string, parentId: string | null, privacy: PrivacyLevel = 'private') => {
     const timestamp = new Date().toISOString();
@@ -274,6 +265,9 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   const deleteForever = useCallback(async (fileId: string) => {
     const item = state.items.find((candidate) => candidate.id === fileId);
     if (!item) throw new Error('Item not found.');
+    if (item.kind === 'folder' && state.items.some((candidate) => candidate.parentId === fileId)) {
+      throw new Error('This folder still contains files. Restore it and remove its contents before deleting the folder permanently.');
+    }
     const contract = await loadMidnightContract();
     if (item.kind === 'file') await contract.revokeFileOnMidnight(fileId);
     else await contract.revokePrivateRecordOnMidnight(fileId);
@@ -281,7 +275,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     await Promise.all(removedVersions.map((version) => deleteEncryptedBlob(version.blobKey)));
     dispatch((current) => ({
       ...current,
-      items: current.items.filter((item) => item.id !== fileId && item.parentId !== fileId),
+      items: current.items.filter((item) => item.id !== fileId),
       versions: current.versions.filter((version) => version.fileId !== fileId),
       grants: current.grants.filter((grant) => grant.fileId !== fileId),
       comments: current.comments.filter((comment) => comment.fileId !== fileId),

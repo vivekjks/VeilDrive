@@ -18,7 +18,6 @@ import {
   type FinalizedTransaction,
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import {
-  createProofProvider,
   type MidnightProviders,
   type UnboundTransaction,
 } from '@midnight-ntwrk/midnight-js-types';
@@ -27,6 +26,7 @@ import type { Permission } from '../types';
 import { bytesToHex, hexToBytes } from './encoding';
 import { sha256 } from './crypto';
 import { PREPROD, type WalletConnection } from './midnight';
+import { savePrivateRecordOpening } from './state-vault';
 
 export const VEIL_PRIVATE_STATE_ID = 'veilDrivePrivateState' as const;
 
@@ -72,13 +72,9 @@ const initializeProviders = async (connection: WalletConnection): Promise<{
 }> => {
   const { password, privateState } = await deriveWalletSecrets(connection);
   const zkConfigProvider = new FetchZkConfigProvider<CircuitKey>(window.location.origin, fetch.bind(window));
-  let proofProvider;
-  try {
-    const delegatedProvider = await connection.api.getProvingProvider(zkConfigProvider);
-    proofProvider = createProofProvider(delegatedProvider);
-  } catch {
-    proofProvider = httpClientProofProvider(connection.proofServerUri || PREPROD.proofServer, zkConfigProvider);
-  }
+  // Witnesses include private access secrets. Keep proving on the user's
+  // loopback service rather than silently delegating them to a remote server.
+  const proofProvider = httpClientProofProvider(PREPROD.proofServer, zkConfigProvider);
   const addresses = await connection.api.getShieldedAddresses();
   const privateStateProvider = levelPrivateStateProvider<typeof VEIL_PRIVATE_STATE_ID, VeilDrivePrivateState>({
     midnightDbName: 'veildrive-midnight-v1',
@@ -368,12 +364,21 @@ export const commitPrivateRecordOnMidnight = async (
   // Public records receive fresh client-side entropy so low-cardinality values
   // cannot be guessed or correlated from their ledger commitment.
   const salt = crypto.getRandomValues(new Uint8Array(32));
-  const saltedPayload = `${bytesToHex(salt)}:${payload}`;
-  return transactionId(await requireContract().callTx.commitPrivateRecord(
+  const saltHex = bytesToHex(salt);
+  const commitment = await sha256(`${saltHex}:${payload}`);
+  const contract = requireContract();
+  const address = activeAddress!;
+  const opening = { recordId, recordType, payload, salt: saltHex, commitment };
+  // Retain the encrypted opening before submission so a transport interruption
+  // cannot make a finalized commitment impossible to open later.
+  await savePrivateRecordOpening(address, opening);
+  const receipt = transactionId(await contract.callTx.commitPrivateRecord(
     await bytes32(recordId, 'veildrive:private-record-id'),
     await bytes32(recordType, 'veildrive:private-record-type'),
-    await bytes32(await sha256(saltedPayload), 'veildrive:private-record-payload'),
+    hexToBytes(commitment),
   ));
+  await savePrivateRecordOpening(address, { ...opening, transactionId: receipt });
+  return receipt;
 };
 
 export const revokePrivateRecordOnMidnight = async (recordId: string) =>

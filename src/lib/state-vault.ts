@@ -1,6 +1,6 @@
 import type { AppState } from '../types';
 import { base64ToBytes, bytesToBase64 } from './encoding';
-import { getOrCreateVaultKey, getVaultKey } from './indexed-db';
+import { getEncryptedBlob, getOrCreateVaultKey, getVaultKey, putEncryptedBlob } from './indexed-db';
 
 const STATE_KEY = 'veildrive-encrypted-app-state-v1';
 const STATE_CRYPTO_KEY = 'veildrive-app-state-key-v1';
@@ -48,4 +48,29 @@ export const saveEncryptedAppState = (state: AppState): Promise<void> => {
 export const clearEncryptedAppState = (): void => {
   generation += 1;
   localStorage.removeItem(STATE_KEY);
+};
+
+export interface PrivateRecordOpening {
+  recordId: string;
+  recordType: string;
+  payload: string;
+  salt: string;
+  commitment: string;
+  transactionId?: string;
+}
+
+export const savePrivateRecordOpening = async (contractAddress: string, opening: PrivateRecordOpening): Promise<void> => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await getStateKey(), encoder.encode(JSON.stringify(opening)));
+  const envelope = new Uint8Array(iv.length + ciphertext.byteLength);
+  envelope.set(iv);
+  envelope.set(new Uint8Array(ciphertext), iv.length);
+  await putEncryptedBlob(`record:${contractAddress}:${opening.recordId}:${opening.commitment}`, envelope.buffer);
+};
+
+export const loadPrivateRecordOpening = async (contractAddress: string, recordId: string, commitment: string): Promise<PrivateRecordOpening> => {
+  const envelope = await getEncryptedBlob(`record:${contractAddress}:${recordId}:${commitment}`);
+  if (!envelope) throw new Error('The private record opening is unavailable on this device.');
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: envelope.slice(0, 12) }, await getStateKey(), envelope.slice(12));
+  return JSON.parse(new TextDecoder().decode(plaintext)) as PrivateRecordOpening;
 };

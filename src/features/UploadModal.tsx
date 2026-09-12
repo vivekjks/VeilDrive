@@ -21,18 +21,14 @@ export const UploadModal = ({ open, onClose, parentId, onComplete }: UploadModal
   const [error, setError] = useState('');
 
   const reset = () => { setFiles([]); setStage('idle'); setError(''); };
-  const close = () => { if (stage === 'encrypting' || stage === 'storing') return; reset(); onClose(); };
+  const close = () => { if (stage !== 'idle' && stage !== 'done') return; reset(); onClose(); };
 
   const performUpload = async () => {
     if (files.length === 0) return;
     setError('');
     try {
       setStage('encrypting');
-      await new Promise((resolve) => window.setTimeout(resolve, 420));
-      setStage('storing');
-      const results = await actions.upload(files, parentId, privacy);
-      setStage('registering');
-      await new Promise((resolve) => window.setTimeout(resolve, 520));
+      const results = await actions.upload(files, parentId, privacy, setStage);
       setStage('done');
       onComplete?.(results[0]!.item.id);
     } catch (reason) {
