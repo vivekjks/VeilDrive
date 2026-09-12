@@ -394,7 +394,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       if (!credential) throw new Error('An active credential is required to prove this policy.');
       receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id);
     } else {
-      receipt = await commitRecord('external-access-proof', grant.id, {
+      receipt = await commitRecord('external-access-proof', `${grant.id}:proof:${Date.now()}`, {
         grantId: grant.id,
         fileId: grant.fileId,
         provedAt: new Date().toISOString(),
