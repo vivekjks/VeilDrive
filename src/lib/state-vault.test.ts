@@ -33,4 +33,15 @@ describe('encrypted application state', () => {
     await expect(loadEncryptedAppState()).rejects.toThrow('stored data has been preserved');
     expect(localStorage.getItem('veildrive-encrypted-app-state-v1')).toBe(damaged);
   });
+
+  it('recovers an empty legacy vault whose non-exportable key is missing', async () => {
+    const state = createInitialState();
+    await saveEncryptedAppState(state);
+    const orphaned = localStorage.getItem('veildrive-encrypted-app-state-v1');
+    await clearVaultDatabase();
+
+    await expect(loadEncryptedAppState()).resolves.toBeNull();
+    expect(localStorage.getItem('veildrive-encrypted-app-state-v1')).toBeNull();
+    expect(localStorage.getItem('veildrive-encrypted-app-state-v1-orphaned')).toBe(orphaned);
+  });
 });

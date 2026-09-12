@@ -1,8 +1,9 @@
 import type { AppState } from '../types';
 import { base64ToBytes, bytesToBase64 } from './encoding';
-import { getEncryptedBlob, getOrCreateVaultKey, getVaultKey, putEncryptedBlob } from './indexed-db';
+import { countEncryptedBlobs, getEncryptedBlob, getOrCreateVaultKey, getVaultKey, putEncryptedBlob } from './indexed-db';
 
 const STATE_KEY = 'veildrive-encrypted-app-state-v1';
+const ORPHANED_STATE_KEY = 'veildrive-encrypted-app-state-v1-orphaned';
 const STATE_CRYPTO_KEY = 'veildrive-app-state-key-v1';
 const encoder = new TextEncoder();
 
@@ -17,7 +18,15 @@ export const loadEncryptedAppState = async (): Promise<AppState | null> => {
   try {
     const envelope = JSON.parse(stored) as { iv: string; ciphertext: string };
     const key = await getVaultKey(STATE_CRYPTO_KEY);
-    if (!key) throw new Error('Encryption key unavailable.');
+    if (!key) {
+      // A legacy empty vault can retain its encrypted settings envelope after
+      // browser storage has discarded the non-exportable CryptoKey. Preserve
+      // that unusable envelope, but only self-repair when no ciphertext exists.
+      if (await countEncryptedBlobs() !== 0) throw new Error('Encryption key unavailable.');
+      if (!localStorage.getItem(ORPHANED_STATE_KEY)) localStorage.setItem(ORPHANED_STATE_KEY, stored);
+      localStorage.removeItem(STATE_KEY);
+      return null;
+    }
     const plaintext = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: base64ToBytes(envelope.iv) },
       key,
@@ -48,6 +57,7 @@ export const saveEncryptedAppState = (state: AppState): Promise<void> => {
 export const clearEncryptedAppState = (): void => {
   generation += 1;
   localStorage.removeItem(STATE_KEY);
+  localStorage.removeItem(ORPHANED_STATE_KEY);
 };
 
 export interface PrivateRecordOpening {

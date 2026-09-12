@@ -45,6 +45,15 @@ export const getEncryptedBlob = async (key: string): Promise<ArrayBuffer | undef
   });
 };
 
+export const countEncryptedBlobs = async (): Promise<number> => {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(BLOBS).objectStore(BLOBS).count();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Unable to inspect encrypted blobs.'));
+  });
+};
+
 export const deleteEncryptedBlob = async (key: string): Promise<void> => {
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
