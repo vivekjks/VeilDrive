@@ -7,7 +7,7 @@ export const PREPROD = {
   indexer: 'https://indexer.preprod.midnight.network/api/v4/graphql',
   indexerWs: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
   proofServer: 'http://localhost:6300',
-  explorer: 'https://preprod.midnightexplorer.com',
+  explorer: 'https://explorer.1am.xyz',
   faucet: 'https://midnight-tmnight-preprod.nethermind.dev/',
   registry: '9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b',
 } as const;
@@ -119,7 +119,15 @@ export const checkPreprodHealth = async () => {
 };
 
 export const explorerTransactionUrl = (transactionId: string): string =>
-  `${PREPROD.explorer}/tx/${transactionId.replace(/^0x/, '')}`;
+  `${PREPROD.explorer}/tx/${transactionId.replace(/^0x/, '')}?network=${PREPROD.networkId}`;
 
 export const explorerContractUrl = (contractAddress: string): string =>
-  `${PREPROD.explorer}/address/${contractAddress}`;
+  `${PREPROD.explorer}/contract/${contractAddress.replace(/^0x/, '')}?network=${PREPROD.networkId}`;
+
+export const readableMidnightError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/'(?:check|prove)' returned an error:.*Failed to fetch/i.test(message)) {
+    return 'The local proof service is offline. Start the VeilDrive proof service, then try again.';
+  }
+  return message;
+};

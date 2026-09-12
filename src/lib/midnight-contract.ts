@@ -25,7 +25,7 @@ import { fromHex, toHex, parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from 
 import type { Permission } from '../types';
 import { bytesToHex, hexToBytes } from './encoding';
 import { sha256 } from './crypto';
-import { PREPROD, type WalletConnection } from './midnight';
+import { PREPROD, readableMidnightError, type WalletConnection } from './midnight';
 import { savePrivateRecordOpening } from './state-vault';
 
 export const VEIL_PRIVATE_STATE_ID = 'veilDrivePrivateState' as const;
@@ -58,7 +58,18 @@ const OPERATION = {
 } as const;
 
 const runContractOperation = <T>(operation: () => Promise<T>): Promise<T> => {
-  const result = operationQueue.then(operation, operation);
+  const operationWithReadableErrors = async () => {
+    try {
+      return await operation();
+    } catch (error) {
+      const message = readableMidnightError(error);
+      if (message !== (error instanceof Error ? error.message : String(error))) {
+        throw new Error(message, { cause: error });
+      }
+      throw error;
+    }
+  };
+  const result = operationQueue.then(operationWithReadableErrors, operationWithReadableErrors);
   operationQueue = result.then(() => undefined, () => undefined);
   return result;
 };

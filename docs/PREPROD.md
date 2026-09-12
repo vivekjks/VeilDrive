@@ -9,7 +9,7 @@
 | Indexer HTTP | `https://indexer.preprod.midnight.network/api/v4/graphql` |
 | Indexer WebSocket | `wss://indexer.preprod.midnight.network/api/v4/graphql/ws` |
 | Local proof server | `http://localhost:6300` |
-| Explorer | `https://preprod.midnightexplorer.com` |
+| Explorer | `https://explorer.1am.xyz/?network=preprod` |
 | Faucet | `https://midnight-tmnight-preprod.nethermind.dev/` |
 
 ## Live deployment
@@ -18,7 +18,7 @@
 | --- | --- |
 | Web app | `https://veildrive.vercel.app` |
 | Compact registry | `9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b` |
-| Registry explorer | `https://preprod.midnightexplorer.com/address/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b` |
+| Registry explorer | `https://explorer.1am.xyz/contract/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b?network=preprod` |
 | Deployment transaction | `0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd` |
 | Deployment block | `2516841` (`SucceedEntirely`) |
 

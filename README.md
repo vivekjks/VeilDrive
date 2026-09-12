@@ -14,8 +14,8 @@ The illustration represents VeilDrive's privacy boundary: the luminous core is t
 | --- | --- |
 | Web app | [veildrive.vercel.app](https://veildrive.vercel.app) |
 | Network | Midnight preprod |
-| Compact registry | [`9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b`](https://preprod.midnightexplorer.com/address/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b) |
-| Deployment receipt | [`0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd`](https://preprod.midnightexplorer.com/tx/0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd), block `2,516,841`, `SucceedEntirely` |
+| Compact registry | [`9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b`](https://explorer.1am.xyz/contract/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b?network=preprod) |
+| Deployment receipt | [`0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd`](https://explorer.1am.xyz/tx/0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd?network=preprod), block `2,516,841`, `SucceedEntirely` |
 
 ## What VeilDrive is
 
