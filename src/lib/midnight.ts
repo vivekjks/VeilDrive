@@ -23,54 +23,127 @@ declare global {
 let connectedWallet: ConnectedAPI | null = null;
 let walletConnection: WalletConnection | null = null;
 
+const WALLET_DISCOVERY_TIMEOUT_MS = 2_000;
+const WALLET_DISCOVERY_POLL_MS = 100;
+const WALLET_RATE_LIMIT_COOLDOWN_MS = 10_250;
+
+const sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const errorMessage = (reason: unknown): string => {
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (reason && typeof reason === 'object') {
+    const record = reason as { message?: unknown; reason?: unknown };
+    if (typeof record.message === 'string' && record.message) return record.message;
+    if (typeof record.reason === 'string' && record.reason) return record.reason;
+  }
+  return String(reason);
+};
+
+const retryRateLimitedRead = async <T>(operation: () => Promise<T>): Promise<T> => {
+  try {
+    return await operation();
+  } catch (reason) {
+    if (!/rate limited/i.test(errorMessage(reason))) throw reason;
+    await sleep(WALLET_RATE_LIMIT_COOLDOWN_MS);
+    try {
+      return await operation();
+    } catch (retryReason) {
+      if (/rate limited/i.test(errorMessage(retryReason))) {
+        throw new Error('The wallet is still rate limiting requests. Wait 10 seconds, then select Connect once.');
+      }
+      throw retryReason;
+    }
+  }
+};
+
 export interface WalletConnection {
   api: ConnectedAPI;
   walletName: string;
   walletAddress: string;
+  shieldedAddresses: Awaited<ReturnType<ConnectedAPI['getShieldedAddresses']>>;
   networkId: string;
   proofServerUri: string;
   indexerUri: string;
   indexerWsUri: string;
 }
 
-export const discoverMidnightWallets = (): InitialAPI[] => {
+export interface MidnightWalletOption {
+  id: string;
+  name: string;
+  apiVersion: string;
+}
+
+const discoverMidnightWalletEntries = (): Array<{ id: string; wallet: InitialAPI }> => {
   const registry = window.midnight ?? {};
-  const preferred = [registry.mnLace, registry['1am'], ...Object.values(registry)];
-  return Array.from(new Set(preferred)).filter(
-    (wallet): wallet is InitialAPI =>
-      Boolean(wallet) &&
-      typeof wallet === 'object' &&
-      'apiVersion' in wallet &&
-      String(wallet.apiVersion).startsWith('4.'),
-  );
+  const entries = Object.entries(registry);
+  const ordered = [
+    ...entries.filter(([id]) => id === '1am'),
+    ...entries.filter(([id]) => id === 'mnLace'),
+    ...entries.filter(([id]) => id !== '1am' && id !== 'mnLace'),
+  ];
+  const seen = new Set<InitialAPI>();
+  return ordered.filter((entry): entry is [string, InitialAPI] => {
+    const wallet = entry[1];
+    const compatible = wallet
+      && typeof wallet === 'object'
+      && 'apiVersion' in wallet
+      && String(wallet.apiVersion).startsWith('4.');
+    if (!compatible || seen.has(wallet)) return false;
+    seen.add(wallet);
+    return true;
+  }).map(([id, wallet]) => ({ id, wallet }));
 };
 
-export const connectMidnightWallet = async (): Promise<WalletConnection> => {
-  const wallet = discoverMidnightWallets()[0];
-  if (!wallet) throw new Error('No compatible Midnight wallet was found. Unlock Lace or 1AM, enable preprod, then reload this page.');
+export const discoverMidnightWallets = (): MidnightWalletOption[] =>
+  discoverMidnightWalletEntries().map(({ id, wallet }) => ({
+    id,
+    name: wallet.name ?? 'Midnight wallet',
+    apiVersion: String(wallet.apiVersion),
+  }));
+
+const waitForMidnightWallet = async (walletId?: string): Promise<InitialAPI | null> => {
+  const deadline = Date.now() + WALLET_DISCOVERY_TIMEOUT_MS;
+  do {
+    const entries = discoverMidnightWalletEntries();
+    const wallet = walletId
+      ? entries.find((entry) => entry.id === walletId)?.wallet
+      : entries[0]?.wallet;
+    if (wallet) return wallet;
+    await sleep(WALLET_DISCOVERY_POLL_MS);
+  } while (Date.now() < deadline);
+  return null;
+};
+
+export const connectMidnightWallet = async (walletId?: string): Promise<WalletConnection> => {
+  const wallet = await waitForMidnightWallet(walletId);
+  if (!wallet) {
+    throw new Error(`No compatible Midnight wallet is available on ${window.location.host}. Enable site access for Lace or 1AM, unlock it, select preprod, and reload this page.`);
+  }
   const walletName = wallet.name ?? 'Midnight wallet';
   let api: ConnectedAPI;
   try {
     api = await wallet.connect(PREPROD.networkId);
   } catch (reason) {
-    const detail = reason instanceof Error && reason.message !== 'Request failed' ? ` ${reason.message}` : '';
+    const message = errorMessage(reason);
+    const detail = message !== 'Request failed' ? ` ${message}` : '';
     throw new Error(`${walletName} did not complete the connection. Unlock the wallet, select Midnight preprod, and try again.${detail}`);
   }
-  const status = await api.getConnectionStatus();
+  const status = await retryRateLimitedRead(() => api.getConnectionStatus());
   if (status.status !== 'connected') throw new Error(`${walletName} did not authorize this application.`);
   if (status.networkId.toLowerCase() !== PREPROD.networkId) {
     throw new Error(`${walletName} is connected to ${status.networkId}. Switch it to Midnight preprod.`);
   }
   setNetworkId(PREPROD.networkId);
   const [configuration, addresses] = await Promise.all([
-    api.getConfiguration(),
-    api.getShieldedAddresses(),
+    retryRateLimitedRead(() => api.getConfiguration()),
+    retryRateLimitedRead(() => api.getShieldedAddresses()),
   ]);
   connectedWallet = api;
   walletConnection = {
     api,
     walletName,
     walletAddress: addresses.shieldedCoinPublicKey,
+    shieldedAddresses: addresses,
     networkId: status.networkId,
     proofServerUri: PREPROD.proofServer,
     indexerUri: configuration.indexerUri ?? PREPROD.indexer,
@@ -127,9 +200,12 @@ export const explorerContractUrl = (contractAddress: string): string =>
   `${PREPROD.explorer}/contract/${contractAddress.replace(/^0x/, '')}?network=${PREPROD.networkId}`;
 
 export const readableMidnightError = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   if (/'(?:check|prove)' returned an error:.*Failed to fetch/i.test(message)) {
     return 'The preprod proof service is unavailable. Wait a moment, then try again.';
+  }
+  if (/rate limited/i.test(message)) {
+    return 'The wallet is temporarily rate limiting requests. Wait 10 seconds, then select Connect once.';
   }
   return message;
 };

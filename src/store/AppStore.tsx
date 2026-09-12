@@ -26,7 +26,22 @@ import { base64ToBytes, bytesToBase64, randomId } from '../lib/encoding';
 import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from '../lib/state-vault';
 import { connectMidnightWallet, disconnectMidnightWallet, getWalletConnection, PREPROD } from '../lib/midnight';
 
-const loadMidnightContract = () => import('../lib/midnight-contract');
+type MidnightContractModule = typeof import('../lib/midnight-contract');
+let midnightContractModule: Promise<MidnightContractModule> | null = null;
+
+const loadMidnightContract = () => {
+  midnightContractModule ??= import('../lib/midnight-contract').catch((error) => {
+    midnightContractModule = null;
+    throw error;
+  });
+  return midnightContractModule;
+};
+
+const clearLoadedMidnightContractSession = async () => {
+  if (!midnightContractModule) return;
+  const contract = await midnightContractModule;
+  contract.clearMidnightContractSession();
+};
 
 const commitRecord = async (recordType: string, recordId: string, payload: unknown): Promise<string> => {
   const { commitPrivateRecordOnMidnight } = await loadMidnightContract();
@@ -64,7 +79,7 @@ const auditEvent = (
 
 interface AppActions {
   connect: (session: Partial<Session>) => void;
-  openRegistry: (contractAddress?: string) => Promise<{
+  openRegistry: (contractAddress?: string, walletId?: string) => Promise<{
     walletName: string;
     walletAddress: string;
     contractAddress: string;
@@ -161,12 +176,11 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
 
   const disconnect = useCallback(async () => {
     disconnectMidnightWallet();
-    const { clearMidnightContractSession } = await loadMidnightContract();
-    clearMidnightContractSession();
+    await clearLoadedMidnightContractSession();
     dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
   }, []);
 
-  const openRegistry = useCallback(async (contractAddress = state.session.contractAddress ?? PREPROD.registry) => {
+  const openRegistry = useCallback(async (contractAddress = state.session.contractAddress ?? PREPROD.registry, walletId?: string) => {
     const address = contractAddress.trim().replace(/^0x/i, '');
     if (!/^[0-9a-f]{64}$/i.test(address)) throw new Error('Enter a valid Midnight contract address.');
     if (state.items.length && state.session.contractAddress && state.session.contractAddress !== address) {
@@ -174,7 +188,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     }
 
     try {
-      const wallet = getWalletConnection() ?? await connectMidnightWallet();
+      const wallet = getWalletConnection() ?? await connectMidnightWallet(walletId);
       if (state.session.walletAddress && state.session.walletAddress !== wallet.walletAddress) {
         throw new Error('This local vault belongs to another wallet. Reconnect its original wallet or use a separate browser profile for the new account.');
       }
@@ -194,8 +208,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       return { ...registry, walletName: wallet.walletName, walletAddress: wallet.walletAddress };
     } catch (error) {
       disconnectMidnightWallet();
-      const { clearMidnightContractSession } = await loadMidnightContract();
-      clearMidnightContractSession();
+      await clearLoadedMidnightContractSession();
       dispatch((current) => ({ ...current, session: { ...current.session, connected: false } }));
       throw error;
     }

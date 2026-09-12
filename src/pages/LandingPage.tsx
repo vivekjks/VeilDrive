@@ -13,7 +13,12 @@ import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { Modal } from '../components/Modal';
 import { Reveal } from '../components/Reveal';
-import { checkPreprodHealth, PREPROD } from '../lib/midnight';
+import {
+  checkPreprodHealth,
+  discoverMidnightWallets,
+  PREPROD,
+  type MidnightWalletOption,
+} from '../lib/midnight';
 import { useAppStore } from '../store/AppStore';
 import './LandingPage.css';
 
@@ -21,23 +26,41 @@ export const LandingPage = () => {
   const { state, actions } = useAppStore();
   const [connectOpen, setConnectOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [connectingWalletId, setConnectingWalletId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [wallets, setWallets] = useState<MidnightWalletOption[]>([]);
   const [health, setHealth] = useState({ indexer: false, proofServer: false, network: false });
   const navigate = useNavigate();
 
   useEffect(() => { checkPreprodHealth().then(setHealth).catch(() => undefined); }, []);
 
-  const connectWallet = async () => {
-    setConnecting(true);
+  useEffect(() => {
+    if (!connectOpen) return;
+    const refreshWallets = () => setWallets(discoverMidnightWallets());
+    refreshWallets();
+    const interval = window.setInterval(refreshWallets, 250);
+    const timeout = window.setTimeout(() => window.clearInterval(interval), 3_000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [connectOpen]);
+
+  const openConnect = () => {
+    setError('');
+    setConnectOpen(true);
+  };
+
+  const connectWallet = async (wallet: MidnightWalletOption) => {
+    setConnectingWalletId(wallet.id);
     setError('');
     try {
-      await actions.openRegistry(state.session.contractAddress ?? PREPROD.registry);
+      await actions.openRegistry(state.session.contractAddress ?? PREPROD.registry, wallet.id);
       navigate('/drive');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not connect to the Midnight wallet.');
     } finally {
-      setConnecting(false);
+      setConnectingWalletId(null);
     }
   };
 
@@ -50,7 +73,7 @@ export const LandingPage = () => {
         </div>
         <div className="landing-nav__end">
           <span className="landing-network"><span className="status-dot" /> Preprod</span>
-          {state.session.connected ? <Link className="nav-enter" to="/drive">Open drive <ArrowRight size={15} weight="light" /></Link> : <button className="nav-enter" onClick={() => setConnectOpen(true)}>Connect <ArrowRight size={15} weight="light" /></button>}
+          {state.session.connected ? <Link className="nav-enter" to="/drive">Open drive <ArrowRight size={15} weight="light" /></Link> : <button className="nav-enter" onClick={openConnect}>Connect <ArrowRight size={15} weight="light" /></button>}
           <button className={`menu-toggle ${menuOpen ? 'is-open' : ''}`} onClick={() => setMenuOpen((open) => !open)} aria-label="Open navigation"><i /><i /></button>
         </div>
       </nav>
@@ -66,7 +89,7 @@ export const LandingPage = () => {
             <Reveal delay={100}><h1>Keep the file.<br />Reveal the proof.</h1></Reveal>
             <Reveal delay={180}><p>Your files are encrypted on your device. Private authorization decides access—without collecting the identity data behind the proof.</p></Reveal>
             <Reveal delay={250} className="landing-hero__actions">
-              <Button tone="primary" onClick={() => setConnectOpen(true)}>Enter your drive</Button>
+              <Button tone="primary" onClick={openConnect}>Enter your drive</Button>
               <a href="#privacy" className="quiet-link">See how privacy works <ArrowDown size={14} weight="light" /></a>
             </Reveal>
           </div>
@@ -87,7 +110,7 @@ export const LandingPage = () => {
 
         <section className="product-section" id="product">
           <Reveal className="product-section__media"><img src="/assets/veil-core.png" alt="Encrypted VeilDrive data core" /></Reveal>
-          <Reveal delay={120} className="product-section__copy"><span className="eyebrow">Familiar by design</span><h2 className="serif">A serious drive for sensitive work.</h2><p>Folders, versions, comments, credentials, integrity proofs, and revocable grants—built around encrypted content and private policy.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Explore the product</Button></Reveal>
+          <Reveal delay={120} className="product-section__copy"><span className="eyebrow">Familiar by design</span><h2 className="serif">A serious drive for sensitive work.</h2><p>Folders, versions, comments, credentials, integrity proofs, and revocable grants—built around encrypted content and private policy.</p><Button tone="primary" onClick={openConnect}>Explore the product</Button></Reveal>
         </section>
 
         <section className="architecture-section" id="architecture">
@@ -102,7 +125,7 @@ export const LandingPage = () => {
         </section>
 
         <section className="landing-cta">
-          <Reveal><ShieldCheck size={42} weight="thin" /><h2>Private by default.<br />Useful by design.</h2><p>Connect a funded Midnight wallet to create your private on-chain vault.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Open VeilDrive</Button></Reveal>
+          <Reveal><ShieldCheck size={42} weight="thin" /><h2>Private by default.<br />Useful by design.</h2><p>Connect a funded Midnight wallet to create your private on-chain vault.</p><Button tone="primary" onClick={openConnect}>Open VeilDrive</Button></Reveal>
         </section>
       </main>
 
@@ -111,12 +134,27 @@ export const LandingPage = () => {
       <Modal open={connectOpen} onClose={() => setConnectOpen(false)} title="Enter your private drive">
         <div className="connect-panel">
           <p className="connect-intro">Connect a DApp Connector v4 wallet on Midnight preprod.</p>
-          <button className="connect-option" onClick={connectWallet} disabled={connecting}>
-            <span className="connect-option__icon"><Wallet size={26} weight="light" /></span>
-            <span><strong>{connecting ? 'Opening your registry…' : 'Connect Lace or 1AM'}</strong><small>Connect, unlock private state, and open your preprod registry.</small></span>
-            <ArrowRight size={18} weight="light" />
-          </button>
-          {error && <div className="connect-error"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Lace</a><a href="https://1am.xyz/" target="_blank" rel="noreferrer">1AM</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
+          {wallets.length ? wallets.map((wallet) => (
+            <button
+              className="connect-option"
+              key={wallet.id}
+              onClick={() => connectWallet(wallet)}
+              disabled={connectingWalletId !== null}
+            >
+              <span className="connect-option__icon"><Wallet size={26} weight="light" /></span>
+              <span>
+                <strong>{connectingWalletId === wallet.id ? `Connecting ${wallet.name}…` : wallet.name}</strong>
+                <small>Midnight preprod · Connector v{wallet.apiVersion}</small>
+              </span>
+              <ArrowRight size={18} weight="light" />
+            </button>
+          )) : (
+            <div className="connect-empty" role="status">
+              <strong>No Midnight wallet detected</strong>
+              <small>Unlock Lace or 1AM, allow it on this site, then reload.</small>
+            </div>
+          )}
+          {error && <div className="connect-error" role="alert"><strong>Wallet connection needs attention</strong><p>{error}</p><div><a href="https://www.lace.io/" target="_blank" rel="noreferrer">Lace</a><a href="https://1am.xyz/" target="_blank" rel="noreferrer">1AM</a><a href={PREPROD.faucet} target="_blank" rel="noreferrer">Preprod faucet</a></div></div>}
           <div className="health-row">
             <span className={health.indexer ? 'is-online' : ''}><i /> Preprod indexer</span>
             <span className={health.proofServer ? 'is-online' : ''}><i /> Hosted proof service</span>

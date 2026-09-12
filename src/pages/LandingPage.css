@@ -66,10 +66,14 @@
 .connect-intro { color: var(--muted); font-size: 13px; line-height: 1.65; }
 .connect-option { width: 100%; margin-top: 12px; min-height: 84px; padding: 14px; display: flex; align-items: center; gap: 14px; border: 0; border-radius: 15px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 1px var(--hairline); text-align: left; cursor: pointer; transition: transform 650ms var(--ease-mass), background-color 650ms var(--ease-mass); }
 .connect-option:hover { transform: translateX(4px); background: rgba(216,255,115,.07); }
+.connect-option:disabled { cursor: wait; opacity: .66; transform: none; }
 .connect-option__icon { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%; display: grid; place-items: center; background: rgba(216,255,115,.1); color: var(--lime); }
 .connect-option > span:nth-child(2) { flex: 1; display: grid; gap: 4px; }
 .connect-option strong { font-size: 14px; }
 .connect-option small { color: var(--muted); font-size: 11px; }
+.connect-empty { margin-top: 12px; padding: 18px; display: grid; gap: 5px; border-radius: 15px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 1px var(--hairline); }
+.connect-empty strong { font-size: 13px; }
+.connect-empty small { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .connect-error { margin-top: 16px; padding: 15px; border-radius: 12px; background: rgba(255,135,126,.08); box-shadow: inset 0 0 0 1px rgba(255,135,126,.18); }
 .connect-error strong { color: var(--danger); font-size: 12px; }
 .connect-error p { margin: 7px 0; color: #ddaaa5; font-size: 11px; line-height: 1.5; }

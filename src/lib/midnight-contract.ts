@@ -127,7 +127,7 @@ const initializeProviders = async (connection: WalletConnection): Promise<{
   // Witnesses include private access secrets. Keep proving on the user's
   // loopback service rather than silently delegating them to a remote server.
   const proofProvider = httpClientProofProvider(PREPROD.proofServer, zkConfigProvider);
-  const addresses = await connection.api.getShieldedAddresses();
+  const addresses = connection.shieldedAddresses;
   const privateStateProvider = levelPrivateStateProvider<typeof VEIL_PRIVATE_STATE_ID, VeilDrivePrivateState>({
     midnightDbName: 'veildrive-midnight-v1',
     privateStateStoreName: 'veil-private-states',
