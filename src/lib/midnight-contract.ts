@@ -289,6 +289,9 @@ export const issueCredentialOnMidnight = async (
   expirySeconds(expiresAt),
 ));
 
+export const credentialClaimsCommitmentOnMidnight = async (claimsSecret: string) =>
+  bytesToHex(await claimsCommitmentBytes(claimsSecret));
+
 export const revokeCredentialOnMidnight = async (credentialId: string) =>
   transactionId(await requireContract().callTx.revokeCredential(
     await bytes32(credentialId, 'veildrive:credential'),

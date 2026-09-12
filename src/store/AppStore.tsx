@@ -39,6 +39,10 @@ const credentialClaimsPayload = (claims: { organization: string; department: str
   role: claims.role.trim(),
 });
 
+const credentialForPolicy = (credentials: Credential[], grant: AccessGrant) => credentials.find((credential) => credential.status === 'active'
+  && grant.conditions.every((condition) => condition.field === 'credentialStatus'
+    || (condition.operator === 'is' && credential[condition.field as 'organization' | 'department' | 'role'] === condition.value)));
+
 type Update = (state: AppState) => AppState;
 
 const auditEvent = (
@@ -83,7 +87,7 @@ interface AppActions {
   inviteToDataRoom: (roomId: string, memberId: string) => Promise<void>;
   updateMember: (memberId: string, patch: Partial<Member>) => Promise<void>;
   addMember: (member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => Promise<Member>;
-  issueCredential: (credential: Omit<Credential, 'id' | 'commitment'>) => Promise<Credential>;
+  issueCredential: (credential: Omit<Credential, 'id' | 'commitment' | 'claimsSecret' | 'transactionId'>) => Promise<Credential>;
   revokeCredential: (credentialId: string) => Promise<void>;
   createProofRequest: (title: string, condition: string, hiddenFields: string[]) => Promise<ProofRequest>;
   generateProof: (requestId: string, requestOverride?: ProofRequest) => Promise<string>;
@@ -309,10 +313,15 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
         const valueFor = (field: 'organization' | 'department' | 'role') => draft.conditions.find((condition) => condition.field === field && condition.operator === 'is')?.value.trim() ?? '';
         const policyClaims = { organization: valueFor('organization'), department: valueFor('department'), role: valueFor('role') };
         if (!policyClaims.organization || !policyClaims.department || !policyClaims.role) throw new Error('Policy access requires exact organization, department, and role claims.');
+        const credential = state.credentials.find((candidate) => candidate.status === 'active'
+          && candidate.organization === policyClaims.organization
+          && candidate.department === policyClaims.department
+          && candidate.role === policyClaims.role);
+        if (!credential) throw new Error('Issue a matching active credential before creating this policy.');
         transactionId = await createPolicyOnMidnight(
           id,
           fileId,
-          credentialClaimsPayload(policyClaims),
+          credential.claimsSecret,
           draft.permissions,
           draft.expiresAt,
           draft.oneTime,
@@ -346,7 +355,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       };
     });
     return grant;
-  }, []);
+  }, [state.credentials]);
 
   const revokeGrant = useCallback(async (grantId: string) => {
     const grant = state.grants.find((candidate) => candidate.id === grantId);
@@ -379,13 +388,16 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       const { consumeWalletAccessOnMidnight } = await loadMidnightContract();
       await consumeWalletAccessOnMidnight(grant.fileId);
     } else {
-      const credential = state.credentials.find((candidate) => candidate.status === 'active');
+      const credential = credentialForPolicy(state.credentials, grant);
       if (!credential) throw new Error('An active credential is required to consume this policy grant.');
-      const { consumePolicyAccessOnMidnight } = await loadMidnightContract();
+      const holder = credential.subjectId === 'owner' ? state.session.veilId : state.members.find((member) => member.id === credential.subjectId)?.veilId;
+      if (!holder || holder !== state.session.veilId) throw new Error('Connect the wallet that holds this credential.');
+      const { consumePolicyAccessOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
+      await setLocalCredentialClaimsOnMidnight(credential.claimsSecret);
       await consumePolicyAccessOnMidnight(grant.id, credential.id);
     }
     dispatch((current) => ({ ...current, grants: current.grants.map((candidate) => candidate.id === grantId ? { ...candidate, consumedAt } : candidate) }));
-  }, [state.credentials, state.grants]);
+  }, [state.credentials, state.grants, state.members, state.session.veilId]);
 
   const proveGrant = useCallback(async (grantId: string) => {
     const grant = state.grants.find((candidate) => candidate.id === grantId);
@@ -398,8 +410,11 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     if (grant.method === 'wallet') {
       receipt = await contract.proveWalletAccessOnMidnight(grant.fileId);
     } else if (grant.method === 'policy' || grant.method === 'team') {
-      const credential = state.credentials.find((candidate) => candidate.status === 'active');
+      const credential = credentialForPolicy(state.credentials, grant);
       if (!credential) throw new Error('An active credential is required to prove this policy.');
+      const holder = credential.subjectId === 'owner' ? state.session.veilId : state.members.find((member) => member.id === credential.subjectId)?.veilId;
+      if (!holder || holder !== state.session.veilId) throw new Error('Connect the wallet that holds this credential.');
+      await contract.setLocalCredentialClaimsOnMidnight(credential.claimsSecret);
       receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id);
     } else {
       receipt = await commitRecord('external-access-proof', `${grant.id}:proof:${Date.now()}`, {
@@ -414,7 +429,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       audit: [auditEvent('proof', file?.name ?? grant.fileId, grant.fileId, { actor: current.session.displayName, transactionId: receipt }), ...current.audit],
     }));
     return receipt;
-  }, [state.credentials, state.grants, state.items]);
+  }, [state.credentials, state.grants, state.items, state.members, state.session.veilId]);
 
   const addComment = useCallback(async (fileId: string, body: string) => {
     const comment: Comment = { id: randomId('comment'), fileId, author: state.session.displayName, body, encrypted: true, createdAt: new Date().toISOString() };
@@ -492,21 +507,25 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return created;
   }, [state.workspaces]);
 
-  const issueCredential = useCallback(async (input: Omit<Credential, 'id' | 'commitment'>) => {
+  const issueCredential = useCallback(async (input: Omit<Credential, 'id' | 'commitment' | 'claimsSecret' | 'transactionId'>) => {
     const id = randomId('credential');
     const claims = credentialClaimsPayload(input);
-    let commitment = await sha256(claims);
+    const claimsSalt = crypto.randomUUID().replaceAll('-', '');
+    const claimsSecret = await sha256(`${claims}:${claimsSalt}`);
+    let commitment = await sha256(`veildrive:claims:${5b0}`);
+    let transactionId = '';
     if (state.session.mode === 'preprod') {
-      const { issueCredentialOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
+      const { credentialClaimsCommitmentOnMidnight, issueCredentialOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
       const member = state.members.find((candidate) => candidate.id === input.subjectId);
       const holderIdentity = input.subjectId === 'owner' ? state.session.veilId : member?.veilId;
       if (!holderIdentity || !/^[0-9a-f]{64}$/i.test(holderIdentity)) {
         throw new Error('This member needs a 64-character Veil ID before a credential can be issued on preprod.');
       }
-      await issueCredentialOnMidnight(id, holderIdentity, claims, input.expiresAt);
-      if (input.subjectId === 'owner') await setLocalCredentialClaimsOnMidnight(claims);
+      transactionId = await issueCredentialOnMidnight(id, holderIdentity, claimsSecret, input.expiresAt);
+      commitment = await credentialClaimsCommitmentOnMidnight(claimsSecret);
+      if (input.subjectId === 'owner') await setLocalCredentialClaimsOnMidnight(claimsSecret);
     }
-    const credential: Credential = { ...input, id, commitment };
+    const credential: Credential = { ...input, id, commitment, claimsSecret, transactionId };
     dispatch((current) => ({ ...current, credentials: [...current.credentials, credential] }));
     return credential;
   }, [state.members, state.session.mode, state.session.veilId]);

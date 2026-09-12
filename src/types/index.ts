@@ -120,6 +120,8 @@ export interface Credential {
   status: 'active' | 'revoked' | 'expired';
   expiresAt: string;
   commitment: string;
+  claimsSecret: string;
+  transactionId: string;
 }
 
 export interface AccessRequest {
