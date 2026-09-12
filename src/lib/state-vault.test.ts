@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createInitialState } from '../store/fixtures';
+import { createInitialState } from '../store/initial-state';
 import { clearVaultDatabase } from './indexed-db';
 import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from './state-vault';
 

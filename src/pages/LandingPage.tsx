@@ -78,11 +78,6 @@ export const LandingPage = () => {
           </div>
           <Reveal delay={160} className="landing-hero__visual">
             <div className="hero-image-frame"><img src="/assets/veil-core.png" alt="A translucent obsidian veil protecting a luminous encrypted core" /></div>
-            <article className="proof-card">
-              <header><span><i className="status-dot" /> Private proof</span><strong>Midnight</strong></header>
-              <p>Credential values remain private during authorization.</p>
-              <footer>Pseudonymous records <ShieldCheck size={18} weight="light" /></footer>
-            </article>
           </Reveal>
           <div className="hero-footnote"><span>Privacy owns a brighter tomorrow.</span><span>Encrypt — control — share with confidence</span></div>
         </section>

@@ -6,6 +6,8 @@ VeilDrive is a privacy-first encrypted drive and proof exchange for Midnight pre
 
 ![VeilDrive encrypted data core](public/assets/veil-core.png)
 
+The illustration represents VeilDrive's privacy boundary: the luminous core is the readable file, the dark veil is client-side encryption, and the outer network receives only ciphertext or a cryptographic commitment. Midnight verifies the rules around the file without receiving its readable contents.
+
 ## Live deployment
 
 | Surface | Address |
@@ -15,11 +17,32 @@ VeilDrive is a privacy-first encrypted drive and proof exchange for Midnight pre
 | Compact registry | [`9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b`](https://preprod.midnightexplorer.com/address/9c8e67b338d3b00af1855b1a7858ceb0a1e34faf4bacc3e89c5bc45f29508b6b) |
 | Deployment receipt | [`0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd`](https://preprod.midnightexplorer.com/tx/0068e414ef090d2f57fc39891756d6ce1b1e3c49f9fe62b65a432801a04d6449cd), block `2,516,841`, `SucceedEntirely` |
 
-## Product overview
+## What VeilDrive is
 
 VeilDrive gives users a familiar drive interface without putting documents, filenames, comments, credential claims, or identity secrets on-chain. Midnight is the authorization and proof layer—not the large-file storage layer.
 
 The application starts empty. It contains no demo files, fake users, seeded grants, or fabricated transaction receipts. A receipt appears only after a wallet submits a real Midnight preprod transaction.
+
+VeilDrive is designed for teams and individuals handling sensitive documents: legal work, diligence rooms, financial records, research, internal governance, and any workflow where a recipient should prove eligibility without publishing the facts behind that proof.
+
+### What it does
+
+- Encrypts file bytes, filenames, tags, descriptions, comments, and other readable metadata before persistence.
+- Registers salted integrity commitments on Midnight so a user can prove that a file or version has not changed.
+- Supports direct wallet grants, credential-based policies, expiring capabilities, one-time access, and revocation.
+- Organizes encrypted material into folders, workspaces, and confidential data rooms.
+- Records real transaction receipts and private audit commitments instead of generating placeholder activity.
+- Keeps the product state empty until the connected user creates real content.
+
+### End-to-end user flow
+
+1. Connect a funded 1AM or Lace wallet on Midnight preprod.
+2. Join the canonical VeilDrive registry, or deploy a separate registry for an isolated organization.
+3. Upload a file. The browser encrypts its bytes and metadata and stores only ciphertext in the configured encrypted storage provider.
+4. Approve the wallet transaction. The Compact contract records the owner-bound commitment and version state.
+5. Share through a recipient Veil ID, a private credential policy, or a secret capability with permissions and expiry.
+6. The recipient proves the required private witness before VeilDrive authorizes retrieval.
+7. Verify any version against its on-chain commitment, or revoke future authorization through the same registry.
 
 ## Feature status
 

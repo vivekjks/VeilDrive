@@ -19,7 +19,7 @@ import type {
   UploadResult,
   Workspace,
 } from '../types';
-import { createInitialState } from './fixtures';
+import { createInitialState } from './initial-state';
 import { decryptVersion, encryptBlob, encryptUpload, sha256 } from '../lib/crypto';
 import { clearVaultDatabase, deleteEncryptedBlob } from '../lib/indexed-db';
 import { base64ToBytes, bytesToBase64, randomId } from '../lib/encoding';
