@@ -16,10 +16,11 @@ const txId = await registerFileOnMidnight(
 await verifyFileOnMidnight(fileId, encryptedBlobCommitment);`;
 
 const circuits = [
-  'registerFile · updateFile · revokeFile · verifyCommitment',
+  'registerFile · updateFile · revokeFile · verifyCommitment · verifyFileVersion',
   'grantAccess · proveWalletAccess · consumeWalletAccess · revokeAccess',
   'createAccessPolicy · provePolicyAccess · consumePolicyAccess · revokeAccessPolicy',
-  'issueCredential · revokeCredential',
+  'registerIssuer · issueCredential · revokeCredential',
+  'createCapabilityAccess · proveCapabilityAccess · consumeCapabilityAccess · revokeCapabilityAccess',
   'recordAuditEvent · verifyAuditEvent',
   'commitPrivateRecord · verifyPrivateRecord · revokePrivateRecord',
 ];
@@ -41,7 +42,7 @@ export const DeveloperPage = () => {
           <pre><code>{code}</code></pre>
         </section>
         <aside className="sdk-features">
-          <BracketsCurly size={34} weight="thin" /><h2 className="serif">20 compiled Compact circuits.</h2>
+          <BracketsCurly size={34} weight="thin" /><h2 className="serif">Seven proof circuits. 25 guarded operations.</h2>
           {circuits.map((group) => <div key={group}><ShieldCheck size={16} /><p>{group}</p></div>)}
         </aside>
       </div>

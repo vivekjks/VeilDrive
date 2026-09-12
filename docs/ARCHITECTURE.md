@@ -12,7 +12,7 @@ Browser / PWA
   └─ Midnight JS providers
        ├─ encrypted private-state database
        ├─ proving keys served from the app origin
-       ├─ wallet proving or localhost:6300 fallback
+       ├─ loopback proof server at localhost:6300
        ├─ preprod indexer
        └─ VeilDrive Compact contract
 ```
@@ -25,10 +25,10 @@ The storage provider never receives plaintext. Midnight never receives the file 
 2. Encrypt file bytes and JSON metadata locally.
 3. Wrap the file key using an unexportable AES-256-KW device key.
 4. Store ciphertext by an opaque blob ID in IndexedDB.
-5. Compute the plaintext commitment and encrypted-metadata commitment.
-6. In preprod mode, call `registerFile`; if the contract call fails, delete the newly written ciphertext so UI and ledger state cannot drift.
+5. Compute a randomly salted plaintext commitment and an encrypted-metadata commitment.
+6. Call `registerFile` on preprod. If submission fails or is ambiguous, retain the local ciphertext without presenting it as registered.
 
-Version updates follow the same transaction shape and roll back a failed local write.
+Version updates follow the same transaction shape. Local encrypted bytes are retained across ambiguous network failures.
 
 ## Identity and access
 
@@ -38,14 +38,24 @@ Team sharing creates a credential policy. Policy grants compare the credential�
 
 ## Contract surface
 
-- File: `registerFile`, `updateFile`, `revokeFile`, `verifyCommitment`
-- Wallet access: `grantAccess`, `revokeAccess`, `proveWalletAccess`, `consumeWalletAccess`
-- Issuers/credentials: `registerIssuer`, `issueCredential`, `revokeCredential`
-- Policies: `createAccessPolicy`, `revokeAccessPolicy`, `provePolicyAccess`, `consumePolicyAccess`
-- Audit: `recordAuditEvent`, `verifyAuditEvent`
+The contract implements 25 guarded state operations behind seven exported proof-circuit dispatchers. This keeps every authorization and lifecycle check in one shared state machine while reducing the verifier-key payload of the initial deployment.
+
+| Exported circuit | Guarded operations |
+| --- | --- |
+| `fileOperation` | register, update, revoke, verify current commitment, verify historical version |
+| `walletAccessOperation` | grant, revoke, prove, consume |
+| `credentialOperation` | register issuer, issue, revoke |
+| `policyAccessOperation` | create, revoke, prove, consume |
+| `capabilityAccessOperation` | create, revoke, prove, consume |
+| `auditOperation` | record, verify |
+| `privateRecordOperation` | commit, verify, revoke |
+
+The browser integration exposes descriptive TypeScript functions such as `registerFileOnMidnight` and `revokeWalletAccessOnMidnight`; callers do not handle dispatcher action numbers directly.
 
 The deployed administrator is automatically registered as the first credential issuer.
 
 ## Build assets
 
 The Compact compiler emits contract bindings, ZKIR, prover keys, verifier keys, and compiler metadata beneath `contract/src/managed/veil-drive`. `scripts/sync-zk-assets.mjs` copies only runtime proof assets to the static public directories before dev/build. Those large copies are ignored; the canonical compiler output is Git LFS-ready.
+
+The seven-dispatcher layout is also a deployment constraint: the original 25-export build exceeded the preprod block limit while calculating the deployment fee because every exported state circuit contributes a verifier key. Dispatching keeps the same feature operations and tests while lowering the initial verifier-key payload.

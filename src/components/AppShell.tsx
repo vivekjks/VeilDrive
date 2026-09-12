@@ -92,7 +92,7 @@ export const AppShell = () => {
       <header className="topbar">
         <form className="global-search" onSubmit={submitSearch}>
           <MagnifyingGlass size={19} weight="light" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search files, proofs, people…" aria-label="Search" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search files and folders…" aria-label="Search" />
         </form>
         <div className="topbar__actions">
           <span className="network-pill"><span className="status-dot" /> Preprod</span>

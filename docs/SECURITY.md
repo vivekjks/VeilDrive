@@ -7,7 +7,7 @@
 - The device wrapping key is unexportable and stored using IndexedDB structured cloning.
 - Contract private witnesses are encrypted at rest by the Midnight level private-state provider.
 - File, grant, credential, policy, and audit identifiers are domain-separated before Compact calls.
-- Failed preprod file registrations remove the orphaned local ciphertext.
+- A failed or ambiguous preprod registration keeps the ciphertext locally so a transport timeout cannot destroy the only encrypted copy.
 - Invalid, expired, revoked, or consumed external capabilities do not reveal file metadata.
 - PWA caching excludes proving keys, ZKIR/compiler assets, and WASM.
 
@@ -18,7 +18,7 @@
 - Revocation stops future contract authorization; robust group offboarding also rotates and re-wraps keys.
 - Recovery guardians in this build are a planning/control surface, not a deployed threshold-recovery cryptosystem.
 - The product has no demo receipt mode. An on-chain action fails visibly when a preprod wallet or contract is unavailable.
-- Credential claims must be provisioned into the holder’s private witness out of band. Issuing a ledger commitment does not itself disclose or transport the claim material.
+- Credential packages transport private claim material out of band and are bound to the holder’s Veil ID. The package is sensitive and must be delivered only to that holder.
 
 ## Operational recommendations
 

@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  smoldot: npm:@aspect-build/empty@0.0.0
+  '@midnight-ntwrk/ledger-v8': 8.1.0
+  '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
+
 importers:
 
   .:
@@ -14,9 +19,6 @@ importers:
       '@fontsource-variable/newsreader':
         specifier: 5.3.0
         version: 5.3.0
-      '@midnight-ntwrk/compact-js':
-        specifier: 2.5.1
-        version: 2.5.1
       '@midnight-ntwrk/dapp-connector-api':
         specifier: 4.0.1
         version: 4.0.1
@@ -53,6 +55,12 @@ importers:
       '@veildrive/contract':
         specifier: workspace:*
         version: link:contract
+      buffer:
+        specifier: 6.0.3
+        version: 6.0.3
+      process:
+        specifier: 0.11.10
+        version: 0.11.10
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -461,9 +469,6 @@ packages:
   '@midnight-ntwrk/ledger-v8@8.1.0':
     resolution: {integrity: sha512-rwOVP5kBwACpYmmY6+oLeaiM3e5gHscRMjbZUOntOC5QdtqLdpeep6eQW1OngI+sxjjdVoGg2eE16sLf+DAHmQ==}
 
-  '@midnight-ntwrk/ledger-v8@8.1.2':
-    resolution: {integrity: sha512-H8r5J892bltVtplh1bq947SH/+/jWx07/PaIGSQG8Bd21bObN+sR5eMVTb/RRIRlf2g7MJB4jzgbikMnVZnHqA==}
-
   '@midnight-ntwrk/midnight-js-contracts@4.1.1':
     resolution: {integrity: sha512-vHeKyaj9RXTx+Cep3YpIRgg2EWkzibO4gxI7k/rYpXmGXc3waetrR5sb9FPR7v9SUX00/zf/sYbLp1NZhwZbjg==}
 
@@ -493,9 +498,6 @@ packages:
 
   '@midnight-ntwrk/onchain-runtime-v3@3.0.0':
     resolution: {integrity: sha512-HbFbUOsvgpEFy1OT0Ni2LMFk4jnMQS1em+H+Mof/B3DpnNKl0Lkx5QiulKOc6pyU4KPEagOqx4fYNyVXFwgZ7g==}
-
-  '@midnight-ntwrk/onchain-runtime-v3@3.1.1':
-    resolution: {integrity: sha512-3H5soWI8fWrngV/BzFpZMbx/JsyaK0us8MYe+P8ruwR01SdVMZiypWZRmKq2Dmwn0ZurE3mOdyOd+oYPH7VvTA==}
 
   '@midnight-ntwrk/platform-js@2.2.4':
     resolution: {integrity: sha512-6mrYKSSE8kPgn/5rQ2xofDJk1yAZZRdLOO6Yelweuh5GOnOGz7Qw4venDG/c4TRqtV9ouFp+F5j7ta8aprMinw==}
@@ -2920,22 +2922,20 @@ snapshots:
     dependencies:
       '@effect/platform': 0.95.0(effect@3.22.2)
       '@midnight-ntwrk/compact-runtime': 0.16.0
-      '@midnight-ntwrk/ledger-v8': 8.1.2
+      '@midnight-ntwrk/ledger-v8': 8.1.0
       '@midnight-ntwrk/platform-js': 2.2.4
       effect: 3.22.2
       tslib: 2.8.1
 
   '@midnight-ntwrk/compact-runtime@0.16.0':
     dependencies:
-      '@midnight-ntwrk/onchain-runtime-v3': 3.1.1
+      '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
 
   '@midnight-ntwrk/dapp-connector-api@4.0.1': {}
 
   '@midnight-ntwrk/ledger-v8@8.1.0': {}
-
-  '@midnight-ntwrk/ledger-v8@8.1.2': {}
 
   '@midnight-ntwrk/midnight-js-contracts@4.1.1':
     dependencies:
@@ -3026,8 +3026,6 @@ snapshots:
 
   '@midnight-ntwrk/onchain-runtime-v3@3.0.0': {}
 
-  '@midnight-ntwrk/onchain-runtime-v3@3.1.1': {}
-
   '@midnight-ntwrk/platform-js@2.2.4':
     dependencies:
       '@effect/platform': 0.95.0(effect@3.22.2)
@@ -3036,7 +3034,7 @@ snapshots:
 
   '@midnight-ntwrk/wallet-sdk-address-format@3.1.2':
     dependencies:
-      '@midnight-ntwrk/ledger-v8': 8.1.2
+      '@midnight-ntwrk/ledger-v8': 8.1.0
       '@scure/base': 2.4.0
       '@subsquid/scale-codec': 4.0.1
 

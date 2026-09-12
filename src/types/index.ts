@@ -198,6 +198,7 @@ export interface AppState {
   session: Session;
   items: DriveItem[];
   versions: EncryptedVersion[];
+  pendingFileWrites: PendingFileWrite[];
   grants: AccessGrant[];
   comments: Comment[];
   members: Member[];
@@ -229,4 +230,10 @@ export interface ShareDraft {
 export interface UploadResult {
   item: DriveItem;
   version: EncryptedVersion;
+}
+
+export interface PendingFileWrite extends UploadResult {
+  operation: 'register' | 'update';
+  error: string;
+  createdAt: string;
 }

@@ -9,6 +9,7 @@ import {
   Wallet,
 } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+import { Modal } from '../components/Modal';
 import { Button } from '../components/Button';
 import { shortHash } from '../lib/encoding';
 import {
@@ -35,6 +36,7 @@ export const SettingsPage = () => {
   const [busy, setBusy] = useState<'connect' | 'deploy' | 'join' | null>(null);
   const [contractInput, setContractInput] = useState(state.session.contractAddress ?? '');
   const [message, setMessage] = useState('');
+  const [clearOpen, setClearOpen] = useState(false);
   const runtimeSession = getMidnightContractSession();
 
   const refresh = async () => {
@@ -73,6 +75,10 @@ export const SettingsPage = () => {
   };
 
   const deploy = async () => {
+    if (state.session.contractAddress) {
+      setMessage('This encrypted vault already belongs to a registry. Join it, or use a separate browser profile for a new registry.');
+      return;
+    }
     setBusy('deploy');
     setMessage('Preparing the contract and requesting a zero-knowledge proof…');
     try {
@@ -89,6 +95,10 @@ export const SettingsPage = () => {
   };
 
   const join = async () => {
+    if (state.session.contractAddress && state.session.contractAddress !== contractInput.trim()) {
+      setMessage('This encrypted vault is bound to another registry. Enter its saved address or use a separate browser profile.');
+      return;
+    }
     setBusy('join');
     setMessage('Locating the contract and validating its verifier keys…');
     try {
@@ -109,7 +119,7 @@ export const SettingsPage = () => {
         <div>
           <span className="eyebrow">Configuration</span>
           <h1>Settings</h1>
-          <p>Network, storage, wallet, and recovery configuration in one place.</p>
+          <p>Network, encrypted storage, and wallet configuration.</p>
         </div>
       </header>
 
@@ -127,7 +137,7 @@ export const SettingsPage = () => {
           </header>
           <div className="endpoint-list">
             <div><span><i className={health.indexer ? 'is-online' : ''} />Indexer</span><code>{PREPROD.indexer}</code></div>
-            <div><span><i className={health.proofServer ? 'is-online' : ''} />Local proof fallback</span><code>{PREPROD.proofServer}</code></div>
+            <div><span><i className={health.proofServer ? 'is-online' : ''} />Local proof service</span><code>{PREPROD.proofServer}</code></div>
             <div><span><i className={health.node ? 'is-online' : ''} />Node RPC</span><code>{PREPROD.node}</code></div>
           </div>
           <div className="contract-config">
@@ -157,7 +167,7 @@ export const SettingsPage = () => {
               <Button tone="secondary" onClick={join} disabled={busy !== null || !contractInput.trim()} trailing={false}>
                 {busy === 'join' ? 'Joining…' : 'Join registry'}
               </Button>
-              <Button tone="primary" onClick={deploy} disabled={busy !== null}>
+              <Button tone="primary" onClick={deploy} disabled={busy !== null || Boolean(state.session.contractAddress)}>
                 {busy === 'deploy' ? 'Proving & deploying…' : 'Deploy new registry'}
               </Button>
             </div>
@@ -200,9 +210,12 @@ export const SettingsPage = () => {
             <li><span>×</span> Plaintext already seen by a recipient cannot be recalled or protected as DRM.</li>
             <li><span>×</span> Revocation cannot make a former recipient forget a key; robust offboarding rotates group keys.</li>
           </ul>
-          <Button tone="danger" onClick={actions.resetVault}>Clear local encrypted vault</Button>
+          <Button tone="danger" onClick={() => setClearOpen(true)}>Clear local encrypted vault</Button>
         </section>
       </div>
+      <Modal open={clearOpen} onClose={() => setClearOpen(false)} title="Clear this encrypted vault?">
+        <div className="confirm-delete"><LockKey size={30} weight="light" /><p>This permanently removes the local app state and all encrypted file blobs from this browser. On-chain commitments remain.</p><div className="modal-actions"><Button tone="quiet" trailing={false} onClick={() => setClearOpen(false)}>Cancel</Button><Button tone="danger" onClick={actions.resetVault}>Clear permanently</Button></div></div>
+      </Modal>
     </section>
   );
 };

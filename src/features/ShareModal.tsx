@@ -65,7 +65,7 @@ export const ShareModal = ({ file, onClose }: ShareModalProps) => {
         oneTime,
       };
       const grant = await actions.share(file.id, draft);
-      if (grant.token) setResultLink(`${window.location.origin}/share/${grant.token}`);
+      if (grant.token) setResultLink(`${window.location.origin}/share/${grant.id}#${grant.token}`);
       else close();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The preprod grant failed.');

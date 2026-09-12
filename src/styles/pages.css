@@ -53,6 +53,7 @@
 .members-panel > header, .credential-panel > header { display: flex; align-items: flex-end; justify-content: space-between; }
 .members-panel h2, .credential-panel h2 { margin: 8px 0 0; font-size: 22px; letter-spacing: -.04em; }
 .members-panel > header button { border: 0; background: transparent; color: var(--lime); font-size: 9px; cursor: pointer; }
+.members-panel > header > div:last-child { display: flex; gap: 12px; }
 .member-list { margin-top: 18px; }
 .member-list article { min-height: 66px; padding: 0 10px; display: grid; grid-template-columns: 38px minmax(150px,1fr) 110px 100px 62px; align-items: center; gap: 12px; box-shadow: inset 0 -1px 0 var(--hairline); }
 .member-list article > div { min-width: 0; display: grid; gap: 3px; }
@@ -80,6 +81,10 @@
 .data-room-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #090d0c 0 36%, rgba(9,13,12,.75) 60%, rgba(9,13,12,.2)); }
 .data-room-hero__copy { position: relative; z-index: 1; padding: 30px 38px; }
 .back-link { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 9px; }
+.data-room-picker { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.data-room-picker .workspace-switcher { margin-top: 0; }
+.data-room-picker > button { min-height: 38px; padding: 0 14px; border: 1px solid var(--hairline); color: var(--text); display: inline-flex; align-items: center; gap: 7px; }
+.data-room-picker > button:hover { border-color: var(--lime); color: var(--lime); }
 .data-room-hero h1 { max-width: 1000px; margin: 38px 0 8px; font-size: clamp(42px, 5vw, 74px); line-height: .95; letter-spacing: -.05em; }
 .data-room-hero__copy > p { color: #b4beb6; font-size: 15px; }
 .room-stats { margin-top: 32px; display: flex; align-items: center; gap: 26px; }
@@ -99,6 +104,10 @@
 .room-folder-grid svg { margin-bottom: 16px; color: #e0e5dd; }
 .room-folder-grid strong { font-size: 10px; }
 .room-folder-grid span { color: var(--muted); font-size: 7px; }
+.room-file-list { margin-top: 10px; display: grid; gap: 6px; }
+.room-file-list > button { width: 100%; min-height: 52px; padding: 8px 11px; border: 0; border-radius: 10px; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; background: rgba(255,255,255,.02); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--ivory); text-align: left; cursor: pointer; }
+.room-file-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.room-file-list small { color: var(--dim); font-size: 7px; }
 .access-timeline { margin-top: 18px; }
 .access-timeline article { position: relative; min-height: 49px; padding-left: 22px; display: grid; grid-template-columns: 50px 22px 1fr; align-items: start; gap: 8px; font-size: 8px; }
 .access-timeline article > i { position: absolute; top: 3px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
@@ -248,6 +257,11 @@
 .guardian-card > button > span { display: grid; gap: 3px; }
 .guardian-card button strong { font-size: 8px; }
 .guardian-card button small { color: var(--dim); font-size: 7px; }
+.guardian-contact { width: 100%; padding: 10px 0; display: flex; align-items: center; gap: 9px; color: var(--ivory); }
+.guardian-contact > i { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--hairline-bright); }
+.guardian-contact > span { display: grid; gap: 3px; }
+.guardian-contact strong { font-size: 8px; }
+.guardian-contact small { color: var(--dim); font-size: 7px; }
 .guardian-card .field { margin-top: 15px; }
 
 .admin-layout { margin-top: 30px; display: grid; grid-template-columns: minmax(0,1.45fr) minmax(300px,.55fr); gap: 26px; }
@@ -417,6 +431,8 @@
   .credential-panel > h2 { font-size: 36px; }
   .data-room-hero { min-height: 470px; }
   .data-room-hero__copy { padding: 26px 16px; }
+  .data-room-picker { align-items: stretch; flex-direction: column; }
+  .data-room-picker > button { justify-content: center; }
   .data-room-hero h1 { font-size: 48px; margin-top: 30px; }
   .room-stats { align-items: flex-start; flex-direction: column; gap: 14px; }
   .room-stats > span { min-width: 0; }

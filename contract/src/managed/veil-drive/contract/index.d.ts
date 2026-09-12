@@ -7,173 +7,103 @@ export type Witnesses<PS> = {
 }
 
 export type ImpureCircuits<PS> = {
-  registerFile(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               commitment_0: Uint8Array,
-               metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  updateFile(context: __compactRuntime.CircuitContext<PS>,
-             fileId_0: Uint8Array,
-             commitment_0: Uint8Array,
-             metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array,
-                    version_0: bigint,
-                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  grantAccess(context: __compactRuntime.CircuitContext<PS>,
-              fileId_0: Uint8Array,
-              recipient_0: Uint8Array,
-              permissions_0: bigint,
-              expiresAt_0: bigint,
-              oneTime_0: boolean): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  revokeAccess(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               recipient_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  proveWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                      fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  registerIssuer(context: __compactRuntime.CircuitContext<PS>,
-                 issuerCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  issueCredential(context: __compactRuntime.CircuitContext<PS>,
-                  credentialId_0: Uint8Array,
-                  holder_0: Uint8Array,
-                  requiredClaimsCommitment_0: Uint8Array,
-                  expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, []>;
-  revokeCredential(context: __compactRuntime.CircuitContext<PS>,
-                   credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  createAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array,
-                     fileId_0: Uint8Array,
-                     requiredClaims_0: Uint8Array,
-                     permissions_0: bigint,
-                     expiresAt_0: bigint,
-                     oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  revokeAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  provePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                    policyId_0: Uint8Array,
-                    credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                      policyId_0: Uint8Array,
-                      credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array,
-                         fileId_0: Uint8Array,
-                         tokenCommitment_0: Uint8Array,
-                         permissions_0: bigint,
-                         expiresAt_0: bigint,
-                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   eventCommitment_0: Uint8Array,
-                   authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
-  verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   eventId_0: bigint,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      recordType_0: Uint8Array,
-                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  fileOperation(context: __compactRuntime.CircuitContext<PS>,
+                action_0: bigint,
+                fileId_0: Uint8Array,
+                commitment_0: Uint8Array,
+                metadataCommitment_0: Uint8Array,
+                version_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  walletAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        fileId_0: Uint8Array,
+                        recipient_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  credentialOperation(context: __compactRuntime.CircuitContext<PS>,
+                      action_0: bigint,
+                      credentialId_0: Uint8Array,
+                      holder_0: Uint8Array,
+                      claims_0: Uint8Array,
+                      expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  policyAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        policyId_0: Uint8Array,
+                        credentialId_0: Uint8Array,
+                        fileId_0: Uint8Array,
+                        requiredClaims_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  capabilityAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                            action_0: bigint,
+                            capabilityId_0: Uint8Array,
+                            fileId_0: Uint8Array,
+                            tokenCommitment_0: Uint8Array,
+                            permissions_0: bigint,
+                            expiresAt_0: bigint,
+                            oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  auditOperation(context: __compactRuntime.CircuitContext<PS>,
+                 action_0: bigint,
+                 eventId_0: bigint,
+                 fileId_0: Uint8Array,
+                 eventCommitment_0: Uint8Array,
+                 authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  privateRecordOperation(context: __compactRuntime.CircuitContext<PS>,
+                         action_0: bigint,
+                         recordId_0: Uint8Array,
+                         recordType_0: Uint8Array,
+                         recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type ProvableCircuits<PS> = {
-  registerFile(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               commitment_0: Uint8Array,
-               metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  updateFile(context: __compactRuntime.CircuitContext<PS>,
-             fileId_0: Uint8Array,
-             commitment_0: Uint8Array,
-             metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array,
-                    version_0: bigint,
-                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  grantAccess(context: __compactRuntime.CircuitContext<PS>,
-              fileId_0: Uint8Array,
-              recipient_0: Uint8Array,
-              permissions_0: bigint,
-              expiresAt_0: bigint,
-              oneTime_0: boolean): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  revokeAccess(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               recipient_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  proveWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                      fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  registerIssuer(context: __compactRuntime.CircuitContext<PS>,
-                 issuerCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  issueCredential(context: __compactRuntime.CircuitContext<PS>,
-                  credentialId_0: Uint8Array,
-                  holder_0: Uint8Array,
-                  requiredClaimsCommitment_0: Uint8Array,
-                  expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, []>;
-  revokeCredential(context: __compactRuntime.CircuitContext<PS>,
-                   credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  createAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array,
-                     fileId_0: Uint8Array,
-                     requiredClaims_0: Uint8Array,
-                     permissions_0: bigint,
-                     expiresAt_0: bigint,
-                     oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  revokeAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  provePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                    policyId_0: Uint8Array,
-                    credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                      policyId_0: Uint8Array,
-                      credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array,
-                         fileId_0: Uint8Array,
-                         tokenCommitment_0: Uint8Array,
-                         permissions_0: bigint,
-                         expiresAt_0: bigint,
-                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   eventCommitment_0: Uint8Array,
-                   authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
-  verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   eventId_0: bigint,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      recordType_0: Uint8Array,
-                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  fileOperation(context: __compactRuntime.CircuitContext<PS>,
+                action_0: bigint,
+                fileId_0: Uint8Array,
+                commitment_0: Uint8Array,
+                metadataCommitment_0: Uint8Array,
+                version_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  walletAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        fileId_0: Uint8Array,
+                        recipient_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  credentialOperation(context: __compactRuntime.CircuitContext<PS>,
+                      action_0: bigint,
+                      credentialId_0: Uint8Array,
+                      holder_0: Uint8Array,
+                      claims_0: Uint8Array,
+                      expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  policyAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        policyId_0: Uint8Array,
+                        credentialId_0: Uint8Array,
+                        fileId_0: Uint8Array,
+                        requiredClaims_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  capabilityAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                            action_0: bigint,
+                            capabilityId_0: Uint8Array,
+                            fileId_0: Uint8Array,
+                            tokenCommitment_0: Uint8Array,
+                            permissions_0: bigint,
+                            expiresAt_0: bigint,
+                            oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  auditOperation(context: __compactRuntime.CircuitContext<PS>,
+                 action_0: bigint,
+                 eventId_0: bigint,
+                 fileId_0: Uint8Array,
+                 eventCommitment_0: Uint8Array,
+                 authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  privateRecordOperation(context: __compactRuntime.CircuitContext<PS>,
+                         action_0: bigint,
+                         recordId_0: Uint8Array,
+                         recordType_0: Uint8Array,
+                         recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type PureCircuits = {
@@ -197,88 +127,53 @@ export type Circuits<PS> = {
   fileVersionId(context: __compactRuntime.CircuitContext<PS>,
                 fileId_0: Uint8Array,
                 version_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  registerFile(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               commitment_0: Uint8Array,
-               metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  updateFile(context: __compactRuntime.CircuitContext<PS>,
-             fileId_0: Uint8Array,
-             commitment_0: Uint8Array,
-             metadataCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyFileVersion(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array,
-                    version_0: bigint,
-                    expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  revokeFile(context: __compactRuntime.CircuitContext<PS>, fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyCommitment(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  grantAccess(context: __compactRuntime.CircuitContext<PS>,
-              fileId_0: Uint8Array,
-              recipient_0: Uint8Array,
-              permissions_0: bigint,
-              expiresAt_0: bigint,
-              oneTime_0: boolean): __compactRuntime.CircuitResults<PS, Uint8Array>;
-  revokeAccess(context: __compactRuntime.CircuitContext<PS>,
-               fileId_0: Uint8Array,
-               recipient_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  proveWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                    fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeWalletAccess(context: __compactRuntime.CircuitContext<PS>,
-                      fileId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  registerIssuer(context: __compactRuntime.CircuitContext<PS>,
-                 issuerCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  issueCredential(context: __compactRuntime.CircuitContext<PS>,
-                  credentialId_0: Uint8Array,
-                  holder_0: Uint8Array,
-                  requiredClaimsCommitment_0: Uint8Array,
-                  expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, []>;
-  revokeCredential(context: __compactRuntime.CircuitContext<PS>,
-                   credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  createAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array,
-                     fileId_0: Uint8Array,
-                     requiredClaims_0: Uint8Array,
-                     permissions_0: bigint,
-                     expiresAt_0: bigint,
-                     oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  revokeAccessPolicy(context: __compactRuntime.CircuitContext<PS>,
-                     policyId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  provePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                    policyId_0: Uint8Array,
-                    credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumePolicyAccess(context: __compactRuntime.CircuitContext<PS>,
-                      policyId_0: Uint8Array,
-                      credentialId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  createCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array,
-                         fileId_0: Uint8Array,
-                         tokenCommitment_0: Uint8Array,
-                         permissions_0: bigint,
-                         expiresAt_0: bigint,
-                         oneTime_0: boolean): __compactRuntime.CircuitResults<PS, []>;
-  proveCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                        capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  consumeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                          capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokeCapabilityAccess(context: __compactRuntime.CircuitContext<PS>,
-                         capabilityId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  recordAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   fileId_0: Uint8Array,
-                   eventCommitment_0: Uint8Array,
-                   authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
-  verifyAuditEvent(context: __compactRuntime.CircuitContext<PS>,
-                   eventId_0: bigint,
-                   expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  commitPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      recordType_0: Uint8Array,
-                      recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
-  revokePrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
-  verifyPrivateRecord(context: __compactRuntime.CircuitContext<PS>,
-                      recordId_0: Uint8Array,
-                      expectedCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
+  fileOperation(context: __compactRuntime.CircuitContext<PS>,
+                action_0: bigint,
+                fileId_0: Uint8Array,
+                commitment_0: Uint8Array,
+                metadataCommitment_0: Uint8Array,
+                version_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  walletAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        fileId_0: Uint8Array,
+                        recipient_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  credentialOperation(context: __compactRuntime.CircuitContext<PS>,
+                      action_0: bigint,
+                      credentialId_0: Uint8Array,
+                      holder_0: Uint8Array,
+                      claims_0: Uint8Array,
+                      expiresAt_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  policyAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                        action_0: bigint,
+                        policyId_0: Uint8Array,
+                        credentialId_0: Uint8Array,
+                        fileId_0: Uint8Array,
+                        requiredClaims_0: Uint8Array,
+                        permissions_0: bigint,
+                        expiresAt_0: bigint,
+                        oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  capabilityAccessOperation(context: __compactRuntime.CircuitContext<PS>,
+                            action_0: bigint,
+                            capabilityId_0: Uint8Array,
+                            fileId_0: Uint8Array,
+                            tokenCommitment_0: Uint8Array,
+                            permissions_0: bigint,
+                            expiresAt_0: bigint,
+                            oneTime_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  auditOperation(context: __compactRuntime.CircuitContext<PS>,
+                 action_0: bigint,
+                 eventId_0: bigint,
+                 fileId_0: Uint8Array,
+                 eventCommitment_0: Uint8Array,
+                 authorized_0: boolean): __compactRuntime.CircuitResults<PS, bigint>;
+  privateRecordOperation(context: __compactRuntime.CircuitContext<PS>,
+                         action_0: bigint,
+                         recordId_0: Uint8Array,
+                         recordType_0: Uint8Array,
+                         recordCommitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, bigint>;
 }
 
 export type Ledger = {

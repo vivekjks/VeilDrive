@@ -11,6 +11,7 @@ export const createInitialState = (): AppState => ({
   },
   items: [],
   versions: [],
+  pendingFileWrites: [],
   grants: [],
   comments: [],
   members: [],

@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import type { PropsWithChildren } from 'react';
 import type {
   AccessGrant,
-  ApiKey,
   AppState,
   AuditEvent,
   Comment,
@@ -13,8 +12,8 @@ import type {
   Guardian,
   Member,
   Notification,
+  PendingFileWrite,
   PrivacyLevel,
-  ProofRequest,
   Session,
   ShareDraft,
   UploadResult,
@@ -22,8 +21,8 @@ import type {
 } from '../types';
 import { createInitialState } from './fixtures';
 import { decryptVersion, encryptBlob, encryptUpload, sha256 } from '../lib/crypto';
-import { deleteEncryptedBlob } from '../lib/indexed-db';
-import { randomId } from '../lib/encoding';
+import { clearVaultDatabase, deleteEncryptedBlob } from '../lib/indexed-db';
+import { base64ToBytes, bytesToBase64, randomId } from '../lib/encoding';
 import { clearEncryptedAppState, loadEncryptedAppState, saveEncryptedAppState } from '../lib/state-vault';
 import { disconnectMidnightWallet } from '../lib/midnight';
 
@@ -67,6 +66,7 @@ interface AppActions {
   connect: (session: Partial<Session>) => void;
   disconnect: () => Promise<void>;
   upload: (files: File[], parentId: string | null, privacy: PrivacyLevel, onProgress?: (stage: 'encrypting' | 'registering') => void) => Promise<UploadResult[]>;
+  retryPendingFileWrite: (fileId: string) => Promise<void>;
   createFolder: (name: string, parentId: string | null, privacy?: PrivacyLevel) => Promise<DriveItem>;
   addVersion: (fileId: string, file: File) => Promise<EncryptedVersion>;
   download: (fileId: string) => Promise<Blob>;
@@ -89,14 +89,10 @@ interface AppActions {
   updateMember: (memberId: string, patch: Partial<Member>) => Promise<void>;
   addMember: (member: Omit<Member, 'id' | 'joinedAt'>, workspaceId?: string) => Promise<Member>;
   issueCredential: (credential: Omit<Credential, 'id' | 'commitment' | 'claimsSecret' | 'transactionId'>) => Promise<Credential>;
+  exportCredential: (credentialId: string) => string;
+  importCredential: (encodedPackage: string) => Promise<Credential>;
   revokeCredential: (credentialId: string) => Promise<void>;
-  createProofRequest: (title: string, condition: string, hiddenFields: string[]) => Promise<ProofRequest>;
-  generateProof: (requestId: string, requestOverride?: ProofRequest) => Promise<string>;
   addGuardian: (guardian: Omit<Guardian, 'id' | 'approved'>) => Promise<Guardian>;
-  toggleGuardian: (guardianId: string) => Promise<void>;
-  setRecoveryThreshold: (threshold: number) => Promise<void>;
-  createApiKey: (label: string) => Promise<{ key: ApiKey; secret: string }>;
-  revokeApiKey: (keyId: string) => Promise<void>;
   markNotificationsRead: () => void;
   setStorageProvider: (provider: AppState['storageProvider']) => void;
   toggleSidebar: () => void;
@@ -179,9 +175,12 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
         onProgress?.('registering');
         result.version.transactionId = await registerFileOnMidnight(result.item.id, result.version.commitment, await sha256(result.version.metadataCipher));
       } catch (error) {
-        await deleteEncryptedBlob(result.version.blobKey);
         const message = error instanceof Error ? error.message : 'Registration failed.';
-        throw new Error(results.length ? `${results.length} file(s) completed. ${file.name} failed: ${message}` : message);
+        const pending: PendingFileWrite = { ...result, operation: 'register', error: message, createdAt: new Date().toISOString() };
+        dispatch((current) => ({ ...current, pendingFileWrites: [pending, ...current.pendingFileWrites.filter((candidate) => candidate.item.id !== result.item.id)] }));
+        throw new Error(results.length
+          ? `${results.length} file(s) completed. ${file.name} was encrypted locally but its registration failed: ${message}`
+          : `The file remains encrypted in this browser, but Midnight registration failed: ${message}`);
       }
       results.push(result);
       // Preserve each finalized upload immediately. A later file can fail
@@ -217,16 +216,18 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const nextVersion = target.versionIds.length + 1;
     const version = await encryptBlob(file, fileId, nextVersion, 'owner', { name: target.name, type: file.type, size: file.size });
     if (state.session.mode === 'preprod') {
+      const { updateFileOnMidnight } = await loadMidnightContract();
       try {
-        const { updateFileOnMidnight } = await loadMidnightContract();
         version.transactionId = await updateFileOnMidnight(
           fileId,
           version.commitment,
           await sha256(version.metadataCipher),
         );
       } catch (error) {
-        await deleteEncryptedBlob(version.blobKey);
-        throw error;
+        const message = error instanceof Error ? error.message : 'Version registration failed.';
+        const pending: PendingFileWrite = { item: target, version, operation: 'update', error: message, createdAt: new Date().toISOString() };
+        dispatch((current) => ({ ...current, pendingFileWrites: [pending, ...current.pendingFileWrites.filter((candidate) => candidate.item.id !== fileId)] }));
+        throw new Error(`The new version remains encrypted in this browser, but Midnight registration failed: ${message}`);
       }
     }
     dispatch((current) => ({
@@ -238,13 +239,47 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return version;
   }, [state.items, state.session.mode]);
 
+  const retryPendingFileWrite = useCallback(async (fileId: string) => {
+    const pending = state.pendingFileWrites.find((candidate) => candidate.item.id === fileId);
+    if (!pending) throw new Error('Pending encrypted write not found.');
+    const contract = await loadMidnightContract();
+    let receipt: string;
+    try {
+      try {
+        // A previous submission may have finalized after its response timed out.
+        // Verify that exact version before sending a second state transition.
+        receipt = await contract.verifyFileOnMidnight(pending.item.id, pending.version.commitment, pending.version.version);
+      } catch {
+        receipt = pending.operation === 'register'
+          ? await contract.registerFileOnMidnight(pending.item.id, pending.version.commitment, await sha256(pending.version.metadataCipher))
+          : await contract.updateFileOnMidnight(pending.item.id, pending.version.commitment, await sha256(pending.version.metadataCipher));
+      }
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Registration failed.';
+      dispatch((current) => ({ ...current, pendingFileWrites: current.pendingFileWrites.map((candidate) => candidate.item.id === fileId ? { ...candidate, error: message } : candidate) }));
+      throw reason;
+    }
+    const completedVersion = { ...pending.version, transactionId: receipt };
+    dispatch((current) => ({
+      ...current,
+      items: pending.operation === 'register'
+        ? [pending.item, ...current.items.filter((item) => item.id !== fileId)]
+        : current.items.map((item) => item.id === fileId ? { ...item, size: completedVersion.size, modifiedAt: completedVersion.createdAt, versionIds: [...item.versionIds, completedVersion.id], currentVersionId: completedVersion.id } : item),
+      versions: [...current.versions.filter((version) => version.id !== completedVersion.id), completedVersion],
+      pendingFileWrites: current.pendingFileWrites.filter((candidate) => candidate.item.id !== fileId),
+      audit: [auditEvent('upload', pending.item.name, fileId, { transactionId: receipt }), ...current.audit],
+    }));
+  }, [state.pendingFileWrites]);
+
   const download = useCallback(async (fileId: string) => {
     const item = state.items.find((candidate) => candidate.id === fileId);
     const version = state.versions.find((candidate) => candidate.id === item?.currentVersionId);
     if (!item || !version) throw new Error('Encrypted version is unavailable.');
+    // Confirm that this browser still has the ciphertext and can decrypt it
+    // before recording a successful retrieval on the ledger.
+    const plaintext = await decryptVersion(version);
     const { generateAuditProofOnMidnight } = await loadMidnightContract();
     const receipt = await generateAuditProofOnMidnight(fileId, await sha256(`download:${fileId}:${version.commitment}:${Date.now()}`));
-    const plaintext = await decryptVersion(version);
     dispatch((current) => ({ ...current, audit: [auditEvent('download', item.name, fileId, { actor: current.session.displayName, transactionId: receipt }), ...current.audit] }));
     return new Blob([plaintext], { type: item.mimeType });
   }, [state.items, state.versions]);
@@ -404,9 +439,8 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       if (!credential) throw new Error('An active credential is required to consume this policy grant.');
       const holder = credential.subjectId === 'owner' ? state.session.veilId : state.members.find((member) => member.id === credential.subjectId)?.veilId;
       if (!holder || holder !== state.session.veilId) throw new Error('Connect the wallet that holds this credential.');
-      const { consumePolicyAccessOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
-      await setLocalCredentialClaimsOnMidnight(credential.claimsSecret);
-      await consumePolicyAccessOnMidnight(grant.id, credential.id);
+      const { consumePolicyAccessOnMidnight } = await loadMidnightContract();
+      await consumePolicyAccessOnMidnight(grant.id, credential.id, credential.claimsSecret);
     }
     dispatch((current) => ({ ...current, grants: current.grants.map((candidate) => candidate.id === grantId ? { ...candidate, consumedAt } : candidate) }));
   }, [state.credentials, state.grants, state.members, state.session.veilId]);
@@ -426,8 +460,7 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
       if (!credential) throw new Error('An active credential is required to prove this policy.');
       const holder = credential.subjectId === 'owner' ? state.session.veilId : state.members.find((member) => member.id === credential.subjectId)?.veilId;
       if (!holder || holder !== state.session.veilId) throw new Error('Connect the wallet that holds this credential.');
-      await contract.setLocalCredentialClaimsOnMidnight(credential.claimsSecret);
-      receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id);
+      receipt = await contract.provePolicyAccessOnMidnight(grant.id, credential.id, credential.claimsSecret);
     } else {
       if (!grant.token) throw new Error('The private capability secret is unavailable.');
       receipt = await contract.proveCapabilityAccessOnMidnight(grant.id, grant.token);
@@ -451,9 +484,39 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     const request = state.accessRequests.find((candidate) => candidate.id === requestId);
     if (!request) throw new Error('Access request not found.');
     const updated = { ...request, status: result };
+    if (result === 'granted') {
+      const requester = state.members.find((member) => member.id === request.requesterId);
+      if (!requester?.veilId) throw new Error('The requester needs a Veil ID before access can be granted.');
+      const { grantWalletAccessOnMidnight } = await loadMidnightContract();
+      const transactionId = await grantWalletAccessOnMidnight(request.fileId, requester.veilId, [request.permission], null, false);
+      const grant: AccessGrant = {
+        id: randomId('grant'),
+        fileId: request.fileId,
+        method: 'wallet',
+        recipient: requester.veilId,
+        recipientLabel: requester.name,
+        permissions: [request.permission],
+        conditions: [],
+        logic: 'AND',
+        expiresAt: null,
+        oneTime: false,
+        consumedAt: null,
+        revokedAt: null,
+        createdAt: new Date().toISOString(),
+        transactionId,
+      };
+      dispatch((current) => ({
+        ...current,
+        grants: [grant, ...current.grants.filter((candidate) => !(candidate.method === 'wallet' && candidate.fileId === grant.fileId && candidate.recipient === grant.recipient))],
+        accessRequests: current.accessRequests.map((candidate) => candidate.id === requestId ? updated : candidate),
+        audit: [auditEvent('share', request.requesterName, request.fileId, { transactionId }), ...current.audit],
+      }));
+      await commitRecord('access-request', requestId, updated);
+      return;
+    }
     await commitRecord('access-request', requestId, updated);
     dispatch((current) => ({ ...current, accessRequests: current.accessRequests.map((candidate) => candidate.id === requestId ? updated : candidate) }));
-  }, [state.accessRequests]);
+  }, [state.accessRequests, state.members]);
 
   const createAccessRequest = useCallback(async (fileId: string, permission: AccessGrant['permissions'][number], message: string) => {
     const request = { id: randomId('request'), fileId, requesterId: 'owner', requesterName: state.session.displayName, permission, message, status: 'pending' as const, createdAt: new Date().toISOString() };
@@ -550,29 +613,49 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     }));
   }, [state.session.mode]);
 
-  const createProofRequest = useCallback(async (title: string, condition: string, hiddenFields: string[]) => {
-    const request: ProofRequest = { id: randomId('proof'), title, condition, hiddenFields, status: 'draft', createdAt: new Date().toISOString() };
-    await commitRecord('proof-request', request.id, request);
-    dispatch((current) => ({ ...current, proofRequests: [request, ...current.proofRequests] }));
-    return request;
-  }, []);
+  const exportCredential = useCallback((credentialId: string) => {
+    const credential = state.credentials.find((candidate) => candidate.id === credentialId);
+    if (!credential) throw new Error('Credential not found.');
+    const subject = state.members.find((member) => member.id === credential.subjectId);
+    const holderVeilId = credential.subjectId === 'owner' ? state.session.veilId : subject?.veilId;
+    if (!holderVeilId || !state.session.contractAddress) throw new Error('Credential holder or contract identity is unavailable.');
+    const payload = JSON.stringify({
+      version: 1,
+      contractAddress: state.session.contractAddress,
+      holderVeilId,
+      credential,
+    });
+    return `veilcred1.${bytesToBase64(new TextEncoder().encode(payload))}`;
+  }, [state.credentials, state.members, state.session.contractAddress, state.session.veilId]);
 
-  const generateProof = useCallback(async (requestId: string, requestOverride?: ProofRequest) => {
-    const request = state.proofRequests.find((candidate) => candidate.id === requestId) ?? requestOverride;
-    if (!request) throw new Error('Proof request not found.');
-    const commitment = await sha256(`${request.title}:${request.condition}:${request.hiddenFields.join('|')}:${state.session.walletAddress}`);
-    let receipt = commitment;
-    if (state.session.mode === 'preprod') {
-      const { generateAuditProofOnMidnight } = await loadMidnightContract();
-      receipt = await generateAuditProofOnMidnight(request.id, commitment);
+  const importCredential = useCallback(async (encodedPackage: string) => {
+    const encoded = encodedPackage.trim();
+    if (!encoded.startsWith('veilcred1.')) throw new Error('This is not a VeilDrive credential package.');
+    let parsed: { version: number; contractAddress: string; holderVeilId: string; credential: Credential };
+    try {
+      parsed = JSON.parse(new TextDecoder().decode(base64ToBytes(encoded.slice('veilcred1.'.length)))) as typeof parsed;
+    } catch {
+      throw new Error('The credential package is damaged or incomplete.');
     }
-    dispatch((current) => ({
-      ...current,
-      proofRequests: current.proofRequests.map((candidate) => candidate.id === requestId ? { ...candidate, status: 'generated', proofCommitment: commitment } : candidate),
-      audit: [auditEvent('proof', request.title, undefined, { transactionId: receipt }), ...current.audit],
-    }));
-    return commitment;
-  }, [state.proofRequests, state.session.mode, state.session.walletAddress]);
+    if (parsed.version !== 1
+      || !parsed.credential?.id
+      || !/^[0-9a-f]{64}$/i.test(parsed.credential.claimsSecret)
+      || !/^[0-9a-f]{64}$/i.test(parsed.credential.commitment)
+      || !/^[0-9a-f]{64}$/i.test(parsed.holderVeilId)
+      || !['organization', 'department', 'role', 'issuer', 'expiresAt'].every((field) => typeof parsed.credential[field as keyof Credential] === 'string')) {
+      throw new Error('Unsupported credential package.');
+    }
+    if (parsed.contractAddress !== state.session.contractAddress) throw new Error('This credential belongs to a different VeilDrive registry.');
+    if (parsed.holderVeilId !== state.session.veilId) throw new Error('This credential is bound to a different Veil ID.');
+    if (new Date(parsed.credential.expiresAt).getTime() <= Date.now()) throw new Error('This credential has expired.');
+    const { credentialClaimsCommitmentOnMidnight, setLocalCredentialClaimsOnMidnight } = await loadMidnightContract();
+    const commitment = await credentialClaimsCommitmentOnMidnight(parsed.credential.claimsSecret);
+    if (commitment !== parsed.credential.commitment) throw new Error('Credential claims do not match the registered commitment.');
+    await setLocalCredentialClaimsOnMidnight(parsed.credential.claimsSecret);
+    const credential: Credential = { ...parsed.credential, subjectId: 'owner', subjectName: state.session.displayName, status: 'active' };
+    dispatch((current) => ({ ...current, credentials: [...current.credentials.filter((candidate) => candidate.id !== credential.id), credential] }));
+    return credential;
+  }, [state.session.contractAddress, state.session.displayName, state.session.veilId]);
 
   const addGuardian = useCallback(async (guardian: Omit<Guardian, 'id' | 'approved'>) => {
     const created: Guardian = { ...guardian, id: randomId('guardian'), approved: false };
@@ -581,35 +664,6 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
     return created;
   }, []);
 
-  const toggleGuardian = useCallback(async (guardianId: string) => {
-    const guardian = state.guardians.find((candidate) => candidate.id === guardianId);
-    if (!guardian) throw new Error('Recovery guardian not found.');
-    const updated = { ...guardian, approved: !guardian.approved };
-    await commitRecord('recovery-guardian', guardianId, updated);
-    dispatch((current) => ({ ...current, guardians: current.guardians.map((candidate) => candidate.id === guardianId ? updated : candidate) }));
-  }, [state.guardians]);
-
-  const setRecoveryThreshold = useCallback(async (threshold: number) => {
-    await commitRecord('recovery-policy', 'recovery-threshold', { threshold, guardianIds: state.guardians.map((guardian) => guardian.id) });
-    dispatch((current) => ({ ...current, recoveryThreshold: threshold }));
-  }, [state.guardians]);
-
-  const createApiKey = useCallback(async (label: string) => {
-    const secret = `veil_live_${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`;
-    const key: ApiKey = { id: randomId('api'), label, prefix: secret.slice(0, 18), createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null };
-    await commitRecord('developer-key', key.id, key);
-    dispatch((current) => ({ ...current, apiKeys: [...current.apiKeys, key] }));
-    return { key, secret };
-  }, []);
-
-  const revokeApiKey = useCallback(async (keyId: string) => {
-    const key = state.apiKeys.find((candidate) => candidate.id === keyId);
-    if (!key) throw new Error('Developer key not found.');
-    const { revokePrivateRecordOnMidnight } = await loadMidnightContract();
-    await revokePrivateRecordOnMidnight(keyId);
-    dispatch((current) => ({ ...current, apiKeys: current.apiKeys.map((candidate) => candidate.id === keyId ? { ...candidate, revokedAt: new Date().toISOString() } : candidate) }));
-  }, [state.apiKeys]);
-
   const markNotificationsRead = useCallback(() => dispatch((current) => ({ ...current, notifications: current.notifications.map((notice) => ({ ...notice, read: true })) })), []);
   const setStorageProvider = useCallback((provider: AppState['storageProvider']) => {
     if (provider !== 'indexeddb') return;
@@ -617,23 +671,22 @@ export const AppStoreProvider = ({ children }: PropsWithChildren) => {
   }, []);
   const toggleSidebar = useCallback(() => dispatch((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed })), []);
   const resetVault = useCallback(async () => {
-    await Promise.all(state.versions.map((version) => deleteEncryptedBlob(version.blobKey)));
     clearEncryptedAppState();
+    await clearVaultDatabase();
     window.location.assign('/');
-  }, [state.versions]);
+  }, []);
 
   const actions = useMemo<AppActions>(() => ({
-    connect, disconnect, upload, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
+    connect, disconnect, upload, retryPendingFileWrite, createFolder, addVersion, download, toggleFavorite, moveToTrash, restore,
     deleteForever, rename, addTags, share, revokeGrant, proveGrant, consumeGrant, addComment, resolveAccessRequest,
-    createAccessRequest, addWorkspace, createDataRoom, inviteToDataRoom, updateMember, addMember, issueCredential, revokeCredential,
-    createProofRequest, generateProof, addGuardian, toggleGuardian, setRecoveryThreshold, createApiKey,
-    revokeApiKey, markNotificationsRead, setStorageProvider, toggleSidebar, resetVault,
+    createAccessRequest, addWorkspace, createDataRoom, inviteToDataRoom, updateMember, addMember, issueCredential, exportCredential, importCredential, revokeCredential,
+    addGuardian, markNotificationsRead, setStorageProvider, toggleSidebar, resetVault,
   }), [
     addComment, addGuardian, addMember, addTags, addVersion, addWorkspace, connect, createAccessRequest,
-    createApiKey, createDataRoom, createFolder, createProofRequest, deleteForever, disconnect, download, generateProof,
-    inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetVault, resolveAccessRequest, restore,
-    revokeApiKey, revokeCredential, revokeGrant, proveGrant, setRecoveryThreshold, setStorageProvider, share,
-    toggleFavorite, toggleGuardian, toggleSidebar, updateMember, upload, consumeGrant,
+    createDataRoom, createFolder, deleteForever, disconnect, download,
+    exportCredential, importCredential, inviteToDataRoom, issueCredential, markNotificationsRead, moveToTrash, rename, resetVault, resolveAccessRequest, restore,
+    revokeCredential, revokeGrant, proveGrant, setStorageProvider, share,
+    toggleFavorite, toggleSidebar, updateMember, upload, retryPendingFileWrite, consumeGrant,
   ]);
 
   if (storageError) return <main className="boot-screen"><h1>Vault storage needs attention</h1><p role="alert">{storageError}</p><button onClick={() => ready ? saveEncryptedAppState(state).then(() => setStorageError('')).catch(() => undefined) : window.location.reload()}>Retry</button></main>;

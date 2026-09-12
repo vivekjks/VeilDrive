@@ -27,6 +27,7 @@ export const DrivePage = () => {
   const [sort, setSort] = useState<'modified' | 'name'>('modified');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [retrying, setRetrying] = useState('');
   const query = (params.get('q') ?? '').toLowerCase();
 
   const parentFolder = state.items.find((item) => item.id === folderId);
@@ -72,6 +73,7 @@ export const DrivePage = () => {
 
         <div className="storage-strip bezel"><div className="bezel__core"><div className="storage-meter"><strong>{state.items.filter((item) => item.kind === 'file' && !item.trashed).length}</strong></div><div><span>{formatBytes(totalBytes)} <small>encrypted locally</small></span><p><i className="status-dot" /> Preprod registry</p></div><div className="storage-fact"><strong>Client-side encrypted</strong><span>Readable bytes stay on this device.</span></div><div className="storage-fact"><strong>On-chain commitments</strong><span>{state.versions.length} registered versions.</span></div></div></div>
         {actionError && <p className="form-error" role="alert">{actionError}</p>}
+        {state.pendingFileWrites.length > 0 && <div className="pending-writes" role="status">{state.pendingFileWrites.map((pending) => <article key={pending.item.id}><span className="file-glyph"><FileIcon item={pending.item} size={18} /></span><div><strong>{pending.item.name}</strong><p>Encrypted locally · waiting for preprod registration</p></div><Button tone="secondary" trailing={false} disabled={Boolean(retrying)} onClick={async () => { setRetrying(pending.item.id); setActionError(''); try { await actions.retryPendingFileWrite(pending.item.id); } catch (error) { setActionError(error instanceof Error ? error.message : 'Retry failed.'); } finally { setRetrying(''); } }}>{retrying === pending.item.id ? 'Retrying…' : 'Retry'}</Button></article>)}</div>}
 
         {folderId && <div className="breadcrumbs"><button onClick={() => setFolderId(null)}>My drive</button><CaretRight size={13} weight="light" /><span>{parentFolder?.name}</span></div>}
         <div className="drive-toolbar"><div>{(['all', 'folders', 'recent', 'starred'] as const).map((item) => <button key={item} className={filter === item ? 'is-active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div><button className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-label="List view"><List size={17} weight="light" /></button><button className={view === 'grid' ? 'is-active' : ''} onClick={() => setView('grid')} aria-label="Grid view"><GridFour size={17} weight="light" /></button><button onClick={() => setSort((value) => value === 'modified' ? 'name' : 'modified')}><SortAscending size={17} weight="light" /> {sort === 'modified' ? 'Modified' : 'Name'}</button></div></div>

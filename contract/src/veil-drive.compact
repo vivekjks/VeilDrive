@@ -137,7 +137,7 @@ circuit assertFileOwner(fileId: Bytes<32>): FileEntry {
   return entry;
 }
 
-export circuit registerFile(
+circuit registerFile(
   fileId: Bytes<32>,
   commitment: Bytes<32>,
   metadataCommitment: Bytes<32>
@@ -156,7 +156,7 @@ export circuit registerFile(
   fileCount.increment(1);
 }
 
-export circuit updateFile(
+circuit updateFile(
   fileId: Bytes<32>,
   commitment: Bytes<32>,
   metadataCommitment: Bytes<32>
@@ -174,7 +174,7 @@ export circuit updateFile(
   fileVersions.insert(disclose(fileVersionId(publicFileId, nextVersion)), disclose(commitment));
 }
 
-export circuit verifyFileVersion(fileId: Bytes<32>, version: Uint<32>, expectedCommitment: Bytes<32>): [] {
+circuit verifyFileVersion(fileId: Bytes<32>, version: Uint<32>, expectedCommitment: Bytes<32>): [] {
   const publicFileId = disclose(fileId);
   assert(files.member(publicFileId), "file not registered");
   const versionId = disclose(fileVersionId(publicFileId, disclose(version)));
@@ -182,7 +182,7 @@ export circuit verifyFileVersion(fileId: Bytes<32>, version: Uint<32>, expectedC
   assert(fileVersions.lookup(versionId) == disclose(expectedCommitment), "file commitment mismatch");
 }
 
-export circuit revokeFile(fileId: Bytes<32>): [] {
+circuit revokeFile(fileId: Bytes<32>): [] {
   const publicFileId = disclose(fileId);
   const current = assertFileOwner(publicFileId);
   files.insert(publicFileId, FileEntry {
@@ -194,7 +194,7 @@ export circuit revokeFile(fileId: Bytes<32>): [] {
   });
 }
 
-export circuit verifyCommitment(fileId: Bytes<32>, expectedCommitment: Bytes<32>): [] {
+circuit verifyCommitment(fileId: Bytes<32>, expectedCommitment: Bytes<32>): [] {
   const publicFileId = disclose(fileId);
   assert(files.member(publicFileId), "file not registered");
   const entry = files.lookup(publicFileId);
@@ -202,7 +202,7 @@ export circuit verifyCommitment(fileId: Bytes<32>, expectedCommitment: Bytes<32>
   assert(entry.commitment == disclose(expectedCommitment), "file commitment mismatch");
 }
 
-export circuit grantAccess(
+circuit grantAccess(
   fileId: Bytes<32>,
   recipient: Bytes<32>,
   permissions: Uint<8>,
@@ -227,7 +227,7 @@ export circuit grantAccess(
   return grantId;
 }
 
-export circuit revokeAccess(fileId: Bytes<32>, recipient: Bytes<32>): [] {
+circuit revokeAccess(fileId: Bytes<32>, recipient: Bytes<32>): [] {
   const publicFileId = disclose(fileId);
   assertFileOwner(publicFileId);
   const grantId = accessGrantId(publicFileId, disclose(recipient));
@@ -244,7 +244,7 @@ export circuit revokeAccess(fileId: Bytes<32>, recipient: Bytes<32>): [] {
   });
 }
 
-export circuit proveWalletAccess(fileId: Bytes<32>): Uint<8> {
+circuit proveWalletAccess(fileId: Bytes<32>): Uint<8> {
   const publicFileId = disclose(fileId);
   assertFileActive(publicFileId);
   const recipient = disclose(identityCommitment(localSecretKey()));
@@ -259,7 +259,7 @@ export circuit proveWalletAccess(fileId: Bytes<32>): Uint<8> {
   return grant.permissions;
 }
 
-export circuit consumeWalletAccess(fileId: Bytes<32>): Uint<8> {
+circuit consumeWalletAccess(fileId: Bytes<32>): Uint<8> {
   const publicFileId = disclose(fileId);
   const recipient = disclose(identityCommitment(localSecretKey()));
   const grantId = accessGrantId(publicFileId, recipient);
@@ -279,12 +279,12 @@ export circuit consumeWalletAccess(fileId: Bytes<32>): Uint<8> {
   return permissions;
 }
 
-export circuit registerIssuer(issuerCommitment: Bytes<32>): [] {
+circuit registerIssuer(issuerCommitment: Bytes<32>): [] {
   assertAdministrator();
   issuers.insert(disclose(issuerCommitment));
 }
 
-export circuit issueCredential(
+circuit issueCredential(
   credentialId: Bytes<32>,
   holder: Bytes<32>,
   requiredClaimsCommitment: Bytes<32>,
@@ -304,7 +304,7 @@ export circuit issueCredential(
   credentialCount.increment(1);
 }
 
-export circuit revokeCredential(credentialId: Bytes<32>): [] {
+circuit revokeCredential(credentialId: Bytes<32>): [] {
   const issuer = disclose(identityCommitment(localSecretKey()));
   assert(issuers.member(issuer), "registered credential issuer required");
   const publicCredentialId = disclose(credentialId);
@@ -320,7 +320,7 @@ export circuit revokeCredential(credentialId: Bytes<32>): [] {
   });
 }
 
-export circuit createAccessPolicy(
+circuit createAccessPolicy(
   policyId: Bytes<32>,
   fileId: Bytes<32>,
   requiredClaims: Bytes<32>,
@@ -345,7 +345,7 @@ export circuit createAccessPolicy(
   policyCount.increment(1);
 }
 
-export circuit revokeAccessPolicy(policyId: Bytes<32>): [] {
+circuit revokeAccessPolicy(policyId: Bytes<32>): [] {
   const publicPolicyId = disclose(policyId);
   assert(policies.member(publicPolicyId), "policy not found");
   const policy = policies.lookup(publicPolicyId);
@@ -361,7 +361,7 @@ export circuit revokeAccessPolicy(policyId: Bytes<32>): [] {
   });
 }
 
-export circuit provePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
+circuit provePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
   const publicPolicyId = disclose(policyId);
   const publicCredentialId = disclose(credentialId);
   assert(policies.member(publicPolicyId), "policy not found");
@@ -384,7 +384,7 @@ export circuit provePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): 
   return policy.permissions;
 }
 
-export circuit consumePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
+circuit consumePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>): Uint<8> {
   const publicPolicyId = disclose(policyId);
   const permissions = provePolicyAccess(publicPolicyId, disclose(credentialId));
   const policy = policies.lookup(publicPolicyId);
@@ -402,7 +402,7 @@ export circuit consumePolicyAccess(policyId: Bytes<32>, credentialId: Bytes<32>)
   return permissions;
 }
 
-export circuit createCapabilityAccess(
+circuit createCapabilityAccess(
   capabilityId: Bytes<32>,
   fileId: Bytes<32>,
   tokenCommitment: Bytes<32>,
@@ -428,7 +428,7 @@ export circuit createCapabilityAccess(
   capabilityCount.increment(1);
 }
 
-export circuit proveCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
+circuit proveCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
   const publicCapabilityId = disclose(capabilityId);
   assert(capabilities.member(publicCapabilityId), "capability not found");
   const capability = capabilities.lookup(publicCapabilityId);
@@ -442,7 +442,7 @@ export circuit proveCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
   return capability.permissions;
 }
 
-export circuit consumeCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
+circuit consumeCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
   const publicCapabilityId = disclose(capabilityId);
   const permissions = proveCapabilityAccess(publicCapabilityId);
   const capability = capabilities.lookup(publicCapabilityId);
@@ -461,7 +461,7 @@ export circuit consumeCapabilityAccess(capabilityId: Bytes<32>): Uint<8> {
   return permissions;
 }
 
-export circuit revokeCapabilityAccess(capabilityId: Bytes<32>): [] {
+circuit revokeCapabilityAccess(capabilityId: Bytes<32>): [] {
   const publicCapabilityId = disclose(capabilityId);
   assert(capabilities.member(publicCapabilityId), "capability not found");
   const capability = capabilities.lookup(publicCapabilityId);
@@ -479,7 +479,7 @@ export circuit revokeCapabilityAccess(capabilityId: Bytes<32>): [] {
   });
 }
 
-export circuit recordAuditEvent(
+circuit recordAuditEvent(
   fileId: Bytes<32>,
   eventCommitment: Bytes<32>,
   authorized: Boolean
@@ -495,7 +495,7 @@ export circuit recordAuditEvent(
   return eventId;
 }
 
-export circuit verifyAuditEvent(eventId: Uint<64>, expectedCommitment: Bytes<32>): [] {
+circuit verifyAuditEvent(eventId: Uint<64>, expectedCommitment: Bytes<32>): [] {
   const publicEventId = disclose(eventId);
   assert(auditEvents.member(publicEventId), "audit event not found");
   const entry = auditEvents.lookup(publicEventId);
@@ -503,7 +503,7 @@ export circuit verifyAuditEvent(eventId: Uint<64>, expectedCommitment: Bytes<32>
   assert(entry.eventCommitment == disclose(expectedCommitment), "audit commitment mismatch");
 }
 
-export circuit commitPrivateRecord(
+circuit commitPrivateRecord(
   recordId: Bytes<32>,
   recordType: Bytes<32>,
   recordCommitment: Bytes<32>
@@ -537,7 +537,7 @@ export circuit commitPrivateRecord(
   }
 }
 
-export circuit revokePrivateRecord(recordId: Bytes<32>): [] {
+circuit revokePrivateRecord(recordId: Bytes<32>): [] {
   const publicRecordId = disclose(recordId);
   assert(privateRecords.member(publicRecordId), "private record not found");
   const current = privateRecords.lookup(publicRecordId);
@@ -552,11 +552,184 @@ export circuit revokePrivateRecord(recordId: Bytes<32>): [] {
   });
 }
 
-export circuit verifyPrivateRecord(recordId: Bytes<32>, expectedCommitment: Bytes<32>): Uint<32> {
+circuit verifyPrivateRecord(recordId: Bytes<32>, expectedCommitment: Bytes<32>): Uint<32> {
   const publicRecordId = disclose(recordId);
   assert(privateRecords.member(publicRecordId), "private record not found");
   const record = privateRecords.lookup(publicRecordId);
   assert(record.active, "private record revoked");
   assert(record.commitment == disclose(expectedCommitment), "private record commitment mismatch");
   return record.version;
+}
+
+// Seven exported dispatch circuits keep the initial verifier-key transaction
+// below the preprod block limit. Every feature operation above remains an
+// internal circuit with the same authorization and state-transition rules.
+
+export circuit fileOperation(
+  action: Uint<8>,
+  fileId: Bytes<32>,
+  commitment: Bytes<32>,
+  metadataCommitment: Bytes<32>,
+  version: Uint<32>
+): Uint<32> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    registerFile(fileId, commitment, metadataCommitment);
+    return 1;
+  } else if (publicAction == 2) {
+    updateFile(fileId, commitment, metadataCommitment);
+    return 1;
+  } else if (publicAction == 3) {
+    verifyCommitment(fileId, commitment);
+    return 1;
+  } else if (publicAction == 4) {
+    verifyFileVersion(fileId, version, commitment);
+    return version;
+  } else if (publicAction == 5) {
+    revokeFile(fileId);
+    return 1;
+  } else {
+    assert(false, "invalid file operation");
+    return 0;
+  }
+}
+
+export circuit walletAccessOperation(
+  action: Uint<8>,
+  fileId: Bytes<32>,
+  recipient: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean
+): Uint<8> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    grantAccess(fileId, recipient, permissions, expiresAt, oneTime);
+    return disclose(permissions);
+  } else if (publicAction == 2) {
+    revokeAccess(fileId, recipient);
+    return 0;
+  } else if (publicAction == 3) {
+    return proveWalletAccess(fileId);
+  } else if (publicAction == 4) {
+    return consumeWalletAccess(fileId);
+  } else {
+    assert(false, "invalid wallet access operation");
+    return 0;
+  }
+}
+
+export circuit credentialOperation(
+  action: Uint<8>,
+  credentialId: Bytes<32>,
+  holder: Bytes<32>,
+  claims: Bytes<32>,
+  expiresAt: Uint<64>
+): Uint<8> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    registerIssuer(credentialId);
+    return 1;
+  } else if (publicAction == 2) {
+    issueCredential(credentialId, holder, claims, expiresAt);
+    return 1;
+  } else if (publicAction == 3) {
+    revokeCredential(credentialId);
+    return 1;
+  } else {
+    assert(false, "invalid credential operation");
+    return 0;
+  }
+}
+
+export circuit policyAccessOperation(
+  action: Uint<8>,
+  policyId: Bytes<32>,
+  credentialId: Bytes<32>,
+  fileId: Bytes<32>,
+  requiredClaims: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean
+): Uint<8> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    createAccessPolicy(policyId, fileId, requiredClaims, permissions, expiresAt, oneTime);
+    return disclose(permissions);
+  } else if (publicAction == 2) {
+    revokeAccessPolicy(policyId);
+    return 0;
+  } else if (publicAction == 3) {
+    return provePolicyAccess(policyId, credentialId);
+  } else if (publicAction == 4) {
+    return consumePolicyAccess(policyId, credentialId);
+  } else {
+    assert(false, "invalid policy access operation");
+    return 0;
+  }
+}
+
+export circuit capabilityAccessOperation(
+  action: Uint<8>,
+  capabilityId: Bytes<32>,
+  fileId: Bytes<32>,
+  tokenCommitment: Bytes<32>,
+  permissions: Uint<8>,
+  expiresAt: Uint<64>,
+  oneTime: Boolean
+): Uint<8> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    createCapabilityAccess(capabilityId, fileId, tokenCommitment, permissions, expiresAt, oneTime);
+    return disclose(permissions);
+  } else if (publicAction == 2) {
+    return proveCapabilityAccess(capabilityId);
+  } else if (publicAction == 3) {
+    return consumeCapabilityAccess(capabilityId);
+  } else if (publicAction == 4) {
+    revokeCapabilityAccess(capabilityId);
+    return 0;
+  } else {
+    assert(false, "invalid capability access operation");
+    return 0;
+  }
+}
+
+export circuit auditOperation(
+  action: Uint<8>,
+  eventId: Uint<64>,
+  fileId: Bytes<32>,
+  eventCommitment: Bytes<32>,
+  authorized: Boolean
+): Uint<64> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    return recordAuditEvent(fileId, eventCommitment, authorized);
+  } else if (publicAction == 2) {
+    verifyAuditEvent(eventId, eventCommitment);
+    return eventId;
+  } else {
+    assert(false, "invalid audit operation");
+    return 0;
+  }
+}
+
+export circuit privateRecordOperation(
+  action: Uint<8>,
+  recordId: Bytes<32>,
+  recordType: Bytes<32>,
+  recordCommitment: Bytes<32>
+): Uint<32> {
+  const publicAction = disclose(action);
+  if (publicAction == 1) {
+    return commitPrivateRecord(recordId, recordType, recordCommitment);
+  } else if (publicAction == 2) {
+    revokePrivateRecord(recordId);
+    return 0;
+  } else if (publicAction == 3) {
+    return verifyPrivateRecord(recordId, recordCommitment);
+  } else {
+    assert(false, "invalid private record operation");
+    return 0;
+  }
 }

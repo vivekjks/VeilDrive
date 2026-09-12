@@ -34,7 +34,7 @@ export const PrivacyPage = () => {
         <div><span className="overline">Protection</span><h2>Encryption and commitments are active.</h2></div>
         <div className="privacy-score__facts">
           <span><Check size={14} /> {protectedFiles.length} encrypted files</span>
-          <span><Check size={14} /> {visibleItems.length} protected metadata records</span>
+          <span><Check size={14} /> {state.items.filter((item) => !item.trashed).length} protected metadata records</span>
           <span><Check size={14} /> {activeGrants} active grants</span>
         </div>
       </div>
@@ -46,13 +46,12 @@ export const PrivacyPage = () => {
             <div><small>In encrypted storage</small>{visibleItems.map((item) => <code key={item.id}>{item.encryptedName}</code>)}</div>
           </div> : <div className="empty-state"><EyeSlash size={32} weight="thin" /><p>Upload a file to inspect its protected metadata.</p></div>}
         </article>
-        <article><EyeSlash size={28} weight="thin" /><h3>Public ledger</h3><strong>Commitments only</strong></article>
+        <article><EyeSlash size={28} weight="thin" /><h3>Public ledger</h3><strong>Pseudonymous commitments</strong></article>
         <article><Fingerprint size={28} weight="thin" /><h3>Private state</h3><strong>Held on this device</strong></article>
         <article className="guardian-card">
           <header><UsersThree size={28} weight="thin" /><Button tone="secondary" onClick={() => setGuardianOpen(true)}><Plus size={14} /> Guardian</Button></header>
-          <h3>Recovery policy</h3><p>{state.guardians.length ? `${state.recoveryThreshold} of ${state.guardians.length} guardian commitments required.` : 'No guardians configured.'}</p>
-          {state.guardians.map((guardian) => <button key={guardian.id} disabled={busy} onClick={() => run(() => actions.toggleGuardian(guardian.id))}><i className={guardian.approved ? 'is-approved' : ''}>{guardian.approved && <Check size={11} />}</i><span><strong>{guardian.name}</strong><small>{shortHash(guardian.wallet, 8, 5)}</small></span></button>)}
-          {state.guardians.length > 0 && <label className="field"><span>Threshold</span><select className="select" value={state.recoveryThreshold} disabled={busy} onChange={(event) => run(() => actions.setRecoveryThreshold(Number(event.target.value)))}>{state.guardians.map((_, index) => <option key={index + 1} value={index + 1}>{index + 1} of {state.guardians.length}</option>)}</select></label>}
+          <h3>Recovery contacts</h3><p>{state.guardians.length ? `${state.guardians.length} encrypted contact record(s). These do not recover wallet keys.` : 'No recovery contacts configured.'}</p>
+          {state.guardians.map((guardian) => <div className="guardian-contact" key={guardian.id}><i /><span><strong>{guardian.name}</strong><small>{shortHash(guardian.wallet, 8, 5)}</small></span></div>)}
           {error && <p className="form-error" role="alert">{error}</p>}
         </article>
       </div>
@@ -61,7 +60,7 @@ export const PrivacyPage = () => {
           <label className="field"><span>Label</span><input className="input" value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label className="field"><span>Veil ID</span><input className="input" value={wallet} onChange={(event) => setWallet(event.target.value)} /></label>
           <label className="field"><span>Type</span><select className="select" value={type} onChange={(event) => setType(event.target.value as Guardian['type'])}><option value="wallet">Backup wallet</option><option value="admin">Organization admin</option><option value="service">Recovery service</option></select></label>
-          <p><LockKey size={14} /> The identity is committed on preprod; its readable label stays encrypted locally.</p>
+          <p><LockKey size={14} /> This saves a private contact commitment. It cannot reconstruct a lost wallet or vault key.</p>
           {error && <p className="form-error" role="alert">{error}</p>}
           <footer className="modal-actions"><Button tone="primary" disabled={busy || !name.trim() || !wallet.trim()}>{busy ? 'Committing…' : 'Add guardian'}</Button></footer>
         </form>

@@ -1,5 +1,5 @@
-const CACHE = 'veildrive-shell-v1';
-const CORE = ['/', '/manifest.webmanifest', '/veil-mark.svg', '/assets/veil-core.png', '/assets/drive-preview.png'];
+const CACHE = 'veildrive-shell-v2';
+const CORE = ['/', '/manifest.webmanifest', '/veil-mark.svg', '/assets/veil-core.png'];
 const PRIVATE_ASSET_PATHS = ['/keys/', '/zkir/', '/compiler/'];
 
 self.addEventListener('install', (event) => {

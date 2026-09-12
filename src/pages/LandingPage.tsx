@@ -81,7 +81,7 @@ export const LandingPage = () => {
             <article className="proof-card">
               <header><span><i className="status-dot" /> Private proof</span><strong>Midnight</strong></header>
               <p>Credential values remain private during authorization.</p>
-              <footer>Commitments only <ShieldCheck size={18} weight="light" /></footer>
+              <footer>Pseudonymous records <ShieldCheck size={18} weight="light" /></footer>
             </article>
           </Reveal>
           <div className="hero-footnote"><span>Privacy owns a brighter tomorrow.</span><span>Encrypt — control — share with confidence</span></div>
@@ -97,8 +97,8 @@ export const LandingPage = () => {
         </section>
 
         <section className="product-section" id="product">
-          <Reveal className="product-section__media"><img src="/assets/drive-preview.png" alt="VeilDrive private drive interface" /></Reveal>
-          <Reveal delay={120} className="product-section__copy"><span className="eyebrow">Familiar by design</span><h2 className="serif">A serious drive for sensitive work.</h2><p>Folders, versions, comments, teams, data rooms, recovery, audit, and external access—built around encrypted content and private policy.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Explore the product</Button></Reveal>
+          <Reveal className="product-section__media"><img src="/assets/veil-core.png" alt="Encrypted VeilDrive data core" /></Reveal>
+          <Reveal delay={120} className="product-section__copy"><span className="eyebrow">Familiar by design</span><h2 className="serif">A serious drive for sensitive work.</h2><p>Folders, versions, comments, credentials, integrity proofs, and revocable grants—built around encrypted content and private policy.</p><Button tone="primary" onClick={() => setConnectOpen(true)}>Explore the product</Button></Reveal>
         </section>
 
         <section className="architecture-section" id="architecture">

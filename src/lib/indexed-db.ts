@@ -96,3 +96,18 @@ export const getOrCreateVaultKey = async (keyId: string, create: () => Promise<C
     transaction.onabort = () => reject(transaction.error ?? new Error('Encryption key transaction was aborted.'));
   });
 };
+
+export const clearVaultDatabase = async (): Promise<void> => {
+  if (!hasIndexedDb()) throw new Error('Persistent browser storage is unavailable.');
+  if (databasePromise) {
+    const database = await databasePromise.catch(() => null);
+    database?.close();
+    databasePromise = null;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DATABASE_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('Unable to clear the encrypted vault.'));
+    request.onblocked = () => reject(new Error('Close other VeilDrive tabs before clearing this encrypted vault.'));
+  });
+};

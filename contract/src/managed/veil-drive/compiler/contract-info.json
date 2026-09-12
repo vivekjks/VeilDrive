@@ -108,10 +108,17 @@
       }
     },
     {
-      "name": "registerFile",
+      "name": "fileOperation",
       "pure": false,
       "proof": true,
       "arguments": [
+        {
+          "name": "action",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 255
+          }
+        },
         {
           "name": "fileId",
           "type": {
@@ -128,58 +135,6 @@
         },
         {
           "name": "metadataCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "updateFile",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "fileId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        },
-        {
-          "name": "commitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        },
-        {
-          "name": "metadataCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "verifyFileVersion",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "fileId",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -191,71 +146,25 @@
             "type-name": "Uint",
             "maxval": 4294967295
           }
-        },
-        {
-          "name": "expectedCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
         }
       ],
       "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
+        "type-name": "Uint",
+        "maxval": 4294967295
       }
     },
     {
-      "name": "revokeFile",
+      "name": "walletAccessOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "fileId",
+          "name": "action",
           "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "verifyCommitment",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "fileId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
+            "type-name": "Uint",
+            "maxval": 255
           }
         },
-        {
-          "name": "expectedCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "grantAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
         {
           "name": "fileId",
           "type": {
@@ -292,96 +201,22 @@
         }
       ],
       "result-type": {
-        "type-name": "Bytes",
-        "length": 32
+        "type-name": "Uint",
+        "maxval": 255
       }
     },
     {
-      "name": "revokeAccess",
+      "name": "credentialOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "fileId",
+          "name": "action",
           "type": {
-            "type-name": "Bytes",
-            "length": 32
+            "type-name": "Uint",
+            "maxval": 255
           }
         },
-        {
-          "name": "recipient",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "proveWalletAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "fileId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
-    },
-    {
-      "name": "consumeWalletAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "fileId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
-    },
-    {
-      "name": "registerIssuer",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "issuerCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "issueCredential",
-      "pure": false,
-      "proof": true,
-      "arguments": [
         {
           "name": "credentialId",
           "type": {
@@ -397,7 +232,7 @@
           }
         },
         {
-          "name": "requiredClaimsCommitment",
+          "name": "claims",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -412,37 +247,31 @@
         }
       ],
       "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
+        "type-name": "Uint",
+        "maxval": 255
       }
     },
     {
-      "name": "revokeCredential",
+      "name": "policyAccessOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "credentialId",
+          "name": "action",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 255
+          }
+        },
+        {
+          "name": "policyId",
           "type": {
             "type-name": "Bytes",
             "length": 32
           }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "createAccessPolicy",
-      "pure": false,
-      "proof": true,
-      "arguments": [
+        },
         {
-          "name": "policyId",
+          "name": "credentialId",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -484,85 +313,22 @@
         }
       ],
       "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "revokeAccessPolicy",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "policyId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "provePolicyAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "policyId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        },
-        {
-          "name": "credentialId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
         "type-name": "Uint",
         "maxval": 255
       }
     },
     {
-      "name": "consumePolicyAccess",
+      "name": "capabilityAccessOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "policyId",
+          "name": "action",
           "type": {
-            "type-name": "Bytes",
-            "length": 32
+            "type-name": "Uint",
+            "maxval": 255
           }
         },
-        {
-          "name": "credentialId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
-    },
-    {
-      "name": "createCapabilityAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
         {
           "name": "capabilityId",
           "type": {
@@ -606,71 +372,29 @@
         }
       ],
       "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "proveCapabilityAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "capabilityId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
         "type-name": "Uint",
         "maxval": 255
       }
     },
     {
-      "name": "consumeCapabilityAccess",
+      "name": "auditOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "capabilityId",
+          "name": "action",
           "type": {
-            "type-name": "Bytes",
-            "length": 32
+            "type-name": "Uint",
+            "maxval": 255
           }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
-    },
-    {
-      "name": "revokeCapabilityAccess",
-      "pure": false,
-      "proof": true,
-      "arguments": [
+        },
         {
-          "name": "capabilityId",
+          "name": "eventId",
           "type": {
-            "type-name": "Bytes",
-            "length": 32
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
           }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "recordAuditEvent",
-      "pure": false,
-      "proof": true,
-      "arguments": [
+        },
         {
           "name": "fileId",
           "type": {
@@ -698,36 +422,17 @@
       }
     },
     {
-      "name": "verifyAuditEvent",
+      "name": "privateRecordOperation",
       "pure": false,
       "proof": true,
       "arguments": [
         {
-          "name": "eventId",
+          "name": "action",
           "type": {
             "type-name": "Uint",
-            "maxval": 18446744073709551615
+            "maxval": 255
           }
         },
-        {
-          "name": "expectedCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "commitPrivateRecord",
-      "pure": false,
-      "proof": true,
-      "arguments": [
         {
           "name": "recordId",
           "type": {
@@ -744,50 +449,6 @@
         },
         {
           "name": "recordCommitment",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 4294967295
-      }
-    },
-    {
-      "name": "revokePrivateRecord",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "recordId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "verifyPrivateRecord",
-      "pure": false,
-      "proof": true,
-      "arguments": [
-        {
-          "name": "recordId",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        },
-        {
-          "name": "expectedCommitment",
           "type": {
             "type-name": "Bytes",
             "length": 32
